@@ -1,0 +1,60 @@
+# Sample NSF Budget
+# Demonstrates budget structure for a 3-year CSSI Elements grant
+
+A_senior_personnel:
+  - description: "PI - Dr. Jane Smith (2 months summer)"
+    amount: 40000
+    justification: "PI will oversee project direction, lead architecture design, and manage team. 2 months summer salary at $240K annual rate."
+
+B_other_personnel:
+  - description: "Software Developer (12 months)"
+    amount: 120000
+    justification: "Full-time developer to implement core simulation engine and APIs."
+
+  - description: "Graduate Research Assistant (12 months)"
+    amount: 35000
+    justification: "PhD student to develop educational materials and conduct user research."
+
+C_fringe:
+  - description: "Fringe Benefits (32%)"
+    amount: 62400
+    justification: "University standard fringe rate of 32% applied to personnel costs."
+
+D_equipment:
+  - description: "Cloud Computing Credits"
+    amount: 15000
+    justification: "AWS/GCP credits for development, testing, and production hosting."
+
+E_travel:
+  - description: "Annual Conference (SciPy)"
+    travelers: 2
+    days: 5
+    destination:
+      city: "Austin"
+      state: "TX"
+      fy: 2025
+    airfare: 400
+    justification: "Present research and engage with open-source community."
+
+  - description: "NSF PI Meeting"
+    travelers: 1
+    days: 3
+    destination:
+      city: "Alexandria"
+      state: "VA"
+      fy: 2025
+    airfare: 350
+    justification: "Required NSF awardee meeting."
+
+G_other_direct:
+  - description: "Publication Fees"
+    amount: 3000
+    justification: "Open access publication fees for 2-3 journal articles."
+
+  - description: "Software Licenses"
+    amount: 2000
+    justification: "Development tools and services (GitHub Enterprise, monitoring)."
+
+I_indirect:
+  - rate: 0.55
+    justification: "University negotiated F&A rate of 55% on MTDC."

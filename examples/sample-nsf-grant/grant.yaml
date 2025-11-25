@@ -1,0 +1,38 @@
+# Sample NSF Grant Configuration
+# This is an example project showing GrantKit's structure
+
+title: "Open-Source Policy Analysis Infrastructure"
+pi: "Dr. Jane Smith"
+institution: "Example University"
+
+nsf:
+  program_id: cssi-elements
+  sections:
+    - id: project_summary
+      title: "Project Summary"
+      file: responses/project_summary.md
+      word_limit: 300
+      required: true
+
+    - id: project_description
+      title: "Project Description"
+      file: responses/project_description.md
+      page_limit: 15
+      required: true
+
+    - id: broader_impacts
+      title: "Broader Impacts"
+      file: responses/broader_impacts.md
+      word_limit: 2500
+      required: true
+
+    - id: references
+      title: "References Cited"
+      file: responses/references.md
+      required: true
+
+basic_info:
+  program: "CSSI: Elements"
+  project_title: "Open-Source Policy Analysis Infrastructure"
+  organization_name: "Example University"
+  deadline: "2025-02-15"
