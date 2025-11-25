@@ -171,6 +171,63 @@ class GrantKitSync:
 
         return stats
 
+    def _normalize_grant_yaml(
+        self, grant_meta: Dict[str, Any], grant_dir_name: str
+    ) -> Dict[str, Any]:
+        """
+        Normalize grant.yaml to database schema.
+
+        Handles both flat format (simple) and nested format (PolicyEngine-style).
+        Nested format has keys like 'metadata', 'project', 'contact', etc.
+        """
+        # Detect if this is nested format (has 'metadata' key)
+        is_nested = "metadata" in grant_meta
+
+        if is_nested:
+            # Extract from nested structure
+            metadata = grant_meta.get("metadata", {})
+            project = grant_meta.get("project", {})
+            contact = grant_meta.get("contact", {})
+            status_info = grant_meta.get("status", {})
+
+            db_record = {
+                # Core flat fields from nested structure
+                "id": metadata.get("grant_id", grant_dir_name),
+                "name": metadata.get("name", grant_dir_name),
+                "foundation": metadata.get("foundation"),
+                "program": metadata.get("program"),
+                "deadline": status_info.get("deadline"),
+                "status": status_info.get("stage", "draft"),
+                "amount_requested": project.get("total_budget"),
+                "duration_years": project.get("duration_years"),
+                "solicitation_url": metadata.get("solicitation_url"),
+                "fiscal_sponsor": metadata.get("fiscal_sponsor"),
+                # Contact fields
+                "pi_name": contact.get("pi_name"),
+                "pi_email": contact.get("pi_email"),
+                "co_pi_name": contact.get("co_pi_name"),
+                # JSONB columns for complex nested data
+                "metadata": metadata,
+                "project": project,
+                "contact": contact,
+                "nsf_config": grant_meta.get("nsf"),
+                "scope": grant_meta.get("scope"),
+                "impact": grant_meta.get("impact"),
+                "advisors": grant_meta.get("advisors"),
+                "sustainability": grant_meta.get("sustainability"),
+                "budget": grant_meta.get("budget"),
+            }
+        else:
+            # Flat format - use as-is but ensure id exists
+            db_record = grant_meta.copy()
+            if "id" not in db_record:
+                db_record["id"] = grant_dir_name
+
+        # Remove None values to avoid overwriting with nulls
+        db_record = {k: v for k, v in db_record.items() if v is not None}
+
+        return db_record
+
     def push(self, grant_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Push local files to Supabase.
@@ -205,14 +262,17 @@ class GrantKitSync:
             with open(grant_yaml) as f:
                 grant_meta = yaml.safe_load(f)
 
+            # Normalize to database schema (handles nested and flat formats)
+            db_record = self._normalize_grant_yaml(grant_meta, grant_dir.name)
+
             # Upsert grant
             try:
                 self.client.table("grants").upsert(
-                    grant_meta, on_conflict="id"
+                    db_record, on_conflict="id"
                 ).execute()
                 stats["grants"] += 1
                 logger.info(
-                    f"Pushed grant '{grant_meta.get('name', grant_dir.name)}'"
+                    f"Pushed grant '{db_record.get('name', grant_dir.name)}'"
                 )
             except Exception as e:
                 stats["errors"].append(f"Grant {grant_dir.name}: {e}")
@@ -221,11 +281,15 @@ class GrantKitSync:
 
             # Push responses
             responses_dir = grant_dir / "responses"
+            # Also check docs/responses for PolicyEngine-style layout
+            if not responses_dir.exists():
+                responses_dir = grant_dir / "docs" / "responses"
+
             if responses_dir.exists():
                 for md_file in responses_dir.glob("*.md"):
                     try:
                         response_data = self._parse_response_file(
-                            md_file, grant_meta["id"]
+                            md_file, db_record["id"]
                         )
                         self.client.table("responses").upsert(
                             response_data, on_conflict="grant_id,key"
