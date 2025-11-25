@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grantkit"
+version = "0.1.0"
+description = "Professional tools for grant proposal assembly, validation, and AI-assisted writing"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "PolicyEngine", email = "hello@policyengine.org"}
+]
+keywords = [
+    "grant",
+    "proposal",
+    "nsf",
+    "research",
+    "funding",
+    "academic",
+    "writing",
+    "validation"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Text Processing :: Markup",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+    "jinja2>=3.0",
+    "bibtexparser>=1.4",
+]
+
+[project.optional-dependencies]
+pdf = [
+    "weasyprint>=60.0",
+    "pypdf>=4.0",
+]
+ai = [
+    "anthropic>=0.20",
+    "openai>=1.0",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=24.0",
+    "ruff>=0.3",
+    "mypy>=1.0",
+]
+all = [
+    "grantkit[pdf,ai,dev]",
+]
+
+[project.scripts]
+grantkit = "grantkit.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/MaxGhenis/grantkit"
+Documentation = "https://github.com/MaxGhenis/grantkit#readme"
+Repository = "https://github.com/MaxGhenis/grantkit"
+Issues = "https://github.com/MaxGhenis/grantkit/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["grantkit*"]
+
+[tool.setuptools.package-data]
+grantkit = ["data/*.yaml", "templates/*"]
+
+[tool.black]
+line-length = 79
+target-version = ["py310", "py311", "py312", "py313"]
+
+[tool.ruff]
+line-length = 79
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

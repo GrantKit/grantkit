@@ -1,0 +1,177 @@
+# References and Bibliography Configuration for NSF Grant Assembler
+
+# Bibliography settings
+bibliography:
+  # Default bibliography file name to look for
+  default_filename: "references.bib"
+  
+  # Alternative locations to search for .bib files
+  search_paths:
+    - "."
+    - "references/"
+    - "bibliography/"
+    - "docs/"
+    - "sections/"
+  
+  # Citation style configuration
+  style:
+    # Citation format: numeric, author-year
+    type: "numeric"
+    
+    # Bibliography sorting: alphabetical, order_cited
+    sort_order: "alphabetical"
+    
+    # Include DOI links in references
+    include_doi: true
+    
+    # Include URLs in references (when no DOI available)
+    include_urls: true
+    
+    # Maximum number of authors to show before using "et al."
+    max_authors: 10
+    
+    # Use "et al." after this many authors
+    et_al_threshold: 10
+    
+    # Font size for references section (can be smaller than main text)
+    font_size: 9  # NSF allows smaller font for references
+
+# Validation settings
+validation:
+  # Citation validation
+  citations:
+    # Require all cited works to have bibliography entries
+    require_bib_entries: true
+    
+    # Warn about unused bibliography entries
+    warn_unused_entries: true
+    
+    # Check citation syntax (malformed citations)
+    check_syntax: true
+    
+    # Allow citations in specific sections only
+    allowed_sections: []  # Empty = allow everywhere
+    
+  # URL validation for different sections
+  urls:
+    # Main document URL validation (stricter)
+    main_document:
+      # Completely prohibit URLs in main document (force to references)
+      prohibit_all_urls: false
+      
+      # Only allow these domains in main document
+      allowed_domains:
+        - ".gov"
+        - ".edu" 
+        - "nsf.gov"
+        - "doi.org"
+      
+      # Treat unknown domains as warnings vs errors
+      unknown_domain_severity: "warning"  # or "error"
+    
+    # References section URL validation (more permissive)
+    references:
+      # Allow academic and institutional URLs in references
+      allow_academic_urls: true
+      
+      # Still prohibit cloud storage even in references
+      prohibit_cloud_storage: true
+      
+      # Domains specifically prohibited even in references
+      prohibited_domains:
+        - "dropbox.com"
+        - "drive.google.com"
+        - "onedrive.com"
+        - "facebook.com"
+        - "twitter.com"
+        - "linkedin.com"
+  
+  # Email validation
+  emails:
+    # Completely prohibit email addresses in all sections
+    prohibit_everywhere: true
+    
+    # Specific sections where emails are never allowed
+    prohibited_sections:
+      - "project_description"
+      - "references"
+      - "biographical_sketch"
+
+# PDF generation settings for references
+pdf:
+  # Generate separate references document
+  separate_references: true
+  
+  # Page break before references
+  page_break_before: true
+  
+  # References section title
+  section_title: "References Cited"
+  
+  # Font settings for references
+  font:
+    # Font size (can be smaller than main text)
+    size: 9
+    
+    # Font family (inherit from main document)
+    family: "inherit"
+    
+    # Line spacing in references
+    line_spacing: 1.0
+  
+  # Formatting options
+  formatting:
+    # Indent hanging paragraphs in references
+    hanging_indent: true
+    
+    # Space between reference entries
+    entry_spacing: "6pt"
+    
+    # Number format for numeric citations
+    number_format: "[{number}]"  # or "{number}.", etc.
+
+# Output settings
+output:
+  # Default names for generated files
+  filenames:
+    bibliography_markdown: "references.md"
+    bibliography_json: "references.json"
+    main_document_pdf: "proposal.pdf"
+    references_pdf: "references.pdf"
+    citation_report: "citation_report.md"
+    url_validation_report: "url_validation_report.md"
+  
+  # Export options
+  export:
+    # Export only used bibliography entries
+    export_used_only: true
+    
+    # Generate citation statistics
+    include_statistics: true
+    
+    # Generate validation reports by default
+    auto_validate: true
+
+# Integration settings
+integration:
+  # Pandoc integration for citation processing
+  pandoc:
+    # Use pandoc-citeproc for citation processing
+    use_citeproc: true
+    
+    # Citation style library (CSL) file to use
+    csl_style: "apa"  # or path to custom .csl file
+    
+    # Pandoc filters to apply
+    filters: []
+  
+  # LaTeX integration
+  latex:
+    # Use natbib package for citations
+    use_natbib: false
+    
+    # Use biblatex package for citations  
+    use_biblatex: true
+    
+    # Bibliography style for LaTeX
+    bibstyle: "numeric"

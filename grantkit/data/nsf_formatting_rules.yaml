@@ -1,0 +1,309 @@
+# NSF PAPPG 24-1 Formatting Rules Configuration
+# Last Updated: 2024-12-31
+# Source: NSF Proposal & Award Policies & Procedures Guide (PAPPG) 24-1
+# URL: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/index.jsp
+
+metadata:
+  version: "24-1"
+  last_updated: "2024-12-31"
+  source: "NSF Proposal & Award Policies & Procedures Guide (PAPPG) 24-1"
+  url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/index.jsp"
+  effective_date: "2024-01-01"
+
+# Font Requirements - PAPPG 24-1 II.C.2.d.i.(a)
+font:
+  size:
+    minimum: 10  # points - "Text font size must be 10 points or larger"
+    recommended: 10  # Use minimum allowed for maximum content
+    maximum: 12  # Generally accepted upper limit
+    reference: "PAPPG 24-1 II.C.2.d.i.(a)"
+    quote: "Text font size must be 10 points or larger"
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di"
+    
+  family:
+    required: "Times New Roman, TeX Gyre Termes, Times Roman, or computer modern font"
+    allowed:
+      - "Times New Roman"
+      - "Times Roman" 
+      - "Times"
+      - "TeX Gyre Termes"
+      - "Computer Modern"
+      - "Latin Modern"
+    reference: "PAPPG 24-1 II.C.2.d.i.(a)"
+    quote: "A font such as Computer Modern font may be used for mathematical formulas or equations"
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di"
+
+  exceptions:
+    description: "Smaller fonts allowed for specific elements"
+    allowed_elements:
+      - "mathematical formulas"
+      - "equations" 
+      - "figure captions"
+      - "table captions"
+      - "bibliographic references"
+    minimum_size: 8  # points
+    reference: "PAPPG 24-1 II.C.2.d.i.(a)"
+    quote: "A smaller font may be used for mathematical formulas, equations, figure captions, and bibliographic references"
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di"
+
+# Spacing Requirements - PAPPG 24-1 II.C.2.d.i.(b)
+spacing:
+  lines:
+    maximum: 6.0  # lines per inch
+    description: "No more than six lines of text per vertical inch"
+    reference: "PAPPG 24-1 II.C.2.d.i.(b)"
+    quote: "No more than six lines of text per vertical inch"
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di"
+    
+  line_spacing:
+    single: 1.0
+    maximum_allowed: 1.67  # Approximately 6 lines per inch with 10pt font
+    reference: "PAPPG 24-1 II.C.2.d.i.(b)"
+    
+  paragraphs:
+    recommended_spacing: 0  # points - minimize for space optimization
+    maximum_spacing: 6  # points between paragraphs
+
+# Margin Requirements - PAPPG 24-1 II.C.2.d.i.(c)
+margins:
+  all_sides: 1.0  # inches - required on all sides
+  top: 1.0
+  bottom: 1.0
+  left: 1.0
+  right: 1.0
+  reference: "PAPPG 24-1 II.C.2.d.i.(c)"
+  quote: "Margins, in all directions, must be at least an inch"
+  url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di"
+  enforcement: "strict"  # NSF strictly enforces margin requirements
+
+# Page Layout - PAPPG 24-1 II.C.2.d.i
+page:
+  size: "letter"  # 8.5 x 11 inches
+  orientation: "portrait"
+  reference: "PAPPG 24-1 II.C.2.d.i"
+  quote: "Standard 8.5 x 11 inch pages"
+  
+# Content Restrictions - PAPPG 24-1 II.C.2.d.i
+content:
+  prohibited_elements:
+    - "email addresses"
+    - "cloud storage links" 
+    - "personal identifying information"
+    - "proprietary information"
+  
+  prohibited_urls:
+    - "dropbox.com"
+    - "drive.google.com" 
+    - "onedrive.com"
+    - "icloud.com"
+    - "box.com"
+    - "mediafire.com"
+    reference: "PAPPG 24-1 II.C.2.d.i"
+    quote: "Proposals must not include URLs that provide information necessary to the review of the proposal"
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di"
+
+# Project Description Requirements - PAPPG 24-1 II.C.2.d.i
+project_description:
+  page_limit: 15
+  required_sections:
+    - name: "Overview"
+      description: "Brief overview of the project"
+      reference: "PAPPG 24-1 II.C.2.d.i"
+      
+    - name: "Intellectual Merit"
+      description: "Intellectual merit of the proposed activity"
+      reference: "PAPPG 24-1 II.C.2.d.i"
+      required: true
+      
+    - name: "Broader Impacts"
+      description: "Broader impacts of the proposed activity"
+      reference: "PAPPG 24-1 II.C.2.d.i"
+      required: true
+
+  formatting:
+    reference: "PAPPG 24-1 II.C.2.d.i"
+    quote: "The Project Description must contain, as separate sections, an overview, a statement on the intellectual merit of the proposed activity, and a statement on the broader impacts of the proposed activity"
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di"
+
+# File Format Requirements - PAPPG 24-1 II.C.1
+file_format:
+  pdf:
+    required: true
+    version: "PDF/A compliance preferred"
+    max_size_mb: 10.0
+    reference: "PAPPG 24-1 II.C.1"
+    quote: "All proposal documents must be submitted in Portable Document Format (PDF)"
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C1"
+    
+  images:
+    formats: ["PNG", "JPEG", "GIF"]
+    resolution: "300 DPI minimum for print quality"
+    color: "RGB or grayscale"
+    
+  fonts:
+    embedding: "required"
+    reference: "PAPPG 24-1 II.C.1"
+    quote: "All fonts must be embedded in the PDF"
+
+# Budget Requirements - PAPPG 24-1 II.C.2.g
+budget:
+  categories:
+    - code: "A"
+      name: "Senior Personnel"
+      reference: "PAPPG 24-1 II.C.2.g.i.(a)"
+      
+    - code: "B" 
+      name: "Other Personnel"
+      reference: "PAPPG 24-1 II.C.2.g.i.(b)"
+      
+    - code: "C"
+      name: "Fringe Benefits"
+      reference: "PAPPG 24-1 II.C.2.g.i.(c)"
+      
+    - code: "D"
+      name: "Equipment"
+      reference: "PAPPG 24-1 II.C.2.g.i.(d)"
+      
+    - code: "E"
+      name: "Travel"
+      reference: "PAPPG 24-1 II.C.2.g.i.(e)"
+      
+    - code: "F"
+      name: "Participant Support"
+      reference: "PAPPG 24-1 II.C.2.g.i.(f)"
+      
+    - code: "G"
+      name: "Other Direct Costs"
+      reference: "PAPPG 24-1 II.C.2.g.i.(g)"
+      
+    - code: "I"
+      name: "Total Indirect Costs (F&A)"
+      reference: "PAPPG 24-1 II.C.2.g.i.(h)"
+
+# Biographical Sketch Requirements - PAPPG 24-1 II.C.2.f.i
+biographical_sketch:
+  page_limit: 3
+  format: "NSF-approved format only"
+  required_sections:
+    - "Professional Preparation"
+    - "Appointments" 
+    - "Publications"
+    - "Synergistic Activities"
+    - "Collaborators & Other Affiliations"
+  reference: "PAPPG 24-1 II.C.2.f.i"
+  url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2fi"
+
+# Validation Rules with NSF Citations
+validation_rules:
+  font_size:
+    rule: "font_size_minimum"
+    severity: "error"
+    message: "Font size {size}pt is below NSF minimum requirement"
+    citation: "PAPPG 24-1 II.C.2.d.i.(a)"
+    quote: "Text font size must be 10 points or larger"
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di"
+    
+  margins:
+    rule: "margins_minimum"
+    severity: "error" 
+    message: "Margin {margin}in violates NSF requirement"
+    citation: "PAPPG 24-1 II.C.2.d.i.(c)"
+    quote: "Margins, in all directions, must be at least an inch"
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di"
+    
+  line_density:
+    rule: "line_density_maximum"
+    severity: "error"
+    message: "Line density exceeds NSF maximum of 6 lines per inch"
+    citation: "PAPPG 24-1 II.C.2.d.i.(b)"
+    quote: "No more than six lines of text per vertical inch" 
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di"
+    
+  email_addresses:
+    rule: "prohibited_email"
+    severity: "error"
+    message: "Email address found: {email}"
+    citation: "PAPPG 24-1 II.C.2.d.i"
+    quote: "Proposals must not include personal contact information"
+    suggestion: "Remove email addresses from project description"
+    
+  cloud_storage:
+    rule: "prohibited_urls"
+    severity: "error"
+    message: "Prohibited cloud storage URL: {url}"
+    citation: "PAPPG 24-1 II.C.2.d.i"
+    quote: "Proposals must not include URLs that provide information necessary to review"
+    suggestion: "Use institutional repositories or remove cloud storage links"
+    
+  page_limit:
+    rule: "page_limit_exceeded"
+    severity: "error"
+    message: "Page count ({pages}) exceeds limit ({limit})"
+    citation: "PAPPG 24-1 II.C.2.d.i"
+    quote: "The Project Description is limited to 15 pages"
+    
+  intellectual_merit:
+    rule: "required_section_missing"
+    severity: "error"
+    message: "Intellectual Merit section not found"
+    citation: "PAPPG 24-1 II.C.2.d.i"
+    quote: "Must contain a statement on the intellectual merit of the proposed activity"
+    
+  broader_impacts:
+    rule: "required_section_missing"
+    severity: "error"
+    message: "Broader Impacts section not found"  
+    citation: "PAPPG 24-1 II.C.2.d.i"
+    quote: "Must contain a statement on the broader impacts of the proposed activity"
+
+# Optimization Settings
+optimization:
+  space_maximization:
+    enabled: true
+    description: "Optimize formatting to maximize content within NSF limits"
+    
+  font_size_strategy: "minimum_allowed"  # Use 10pt for maximum content
+  
+  spacing_strategy: "minimal_compliant"  # Minimize spacing while staying compliant
+  
+  reference_font_reduction:
+    enabled: true
+    size: 9  # points - smaller font for references
+    elements: ["bibliography", "references", "citations"]
+    
+  figure_optimization:
+    compression: 0.9  # Scale figures to save space
+    quality: "high"
+    
+# Program-Specific Overrides
+programs:
+  pose_phase_2:
+    project_description_limit: 15
+    budget_cap: 1500000  # $1.5M
+    duration_months: 24
+    
+  career:
+    project_description_limit: 15
+    duration_months: 60
+    
+  cssi:
+    project_description_limit: 15
+    duration_months: 36
+
+# References and Documentation
+references:
+  pappg_24_1:
+    title: "Proposal & Award Policies & Procedures Guide"
+    version: "24-1"
+    effective_date: "2024-01-01"
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/index.jsp"
+    
+  formatting_section:
+    section: "II.C.2.d.i"
+    title: "Text Formatting Requirements"
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di"
+    
+  budget_section:
+    section: "II.C.2.g"
+    title: "Budget"
+    url: "https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2g"

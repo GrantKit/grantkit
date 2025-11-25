@@ -1,0 +1,1 @@
+"""Core functionality for grant assembly and validation."""
