@@ -2,52 +2,63 @@
 
 **Professional tools for grant proposal assembly, validation, and AI-assisted writing.**
 
-GrantKit is an open-source CLI tool designed for researchers and grant writers who want programmatic control over their proposal workflow. It integrates seamlessly with AI assistants like Claude Code for rapid iteration.
+GrantKit is an open-source CLI designed for **AI-native teams** who use AI coding agents (Claude Code, Cursor) and want the same workflow for grant writing.
 
 ## Why GrantKit?
 
+- **Supabase Sync** - Pull grants to local markdown, edit with AI, push back
 - **Pre-submission validation** - Catch NSF PAPPG compliance issues before you submit
-- **Programmatic workflow** - CLI-first design for automation and AI integration
+- **Salary validation** - Check personnel costs against BLS OEWS market data
+- **Travel per diem** - Automatic GSA rate lookups by city and fiscal year
 - **Open source** - Inspect, modify, and extend to your needs
-- **Multi-funder support** - Unified config format for NSF, Arnold Ventures, and more
 
 ## Quick Start
 
 ```bash
 pip install grantkit
 
-# Initialize a new NSF CSSI proposal
-grantkit init cssi
+# Set up Supabase connection
+export GRANTKIT_SUPABASE_KEY="your-key"
 
-# Check compliance
+# Pull grants and responses to local markdown
+grantkit sync pull
+
+# Edit with your favorite AI tool
+claude "improve the broader impacts section"
+
+# Validate and push changes
 grantkit validate
-
-# Generate PDF
-grantkit pdf --optimize
+grantkit sync push
 ```
+
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `grantkit sync pull` | Download grants/responses from Supabase to local markdown |
+| `grantkit sync push` | Upload local changes to Supabase |
+| `grantkit sync watch` | Auto-sync on file changes |
+| `grantkit validate` | Check NSF compliance |
+| `grantkit check-salaries` | Validate salaries against OEWS data |
+| `grantkit budget` | Generate budget narrative and calculations |
+| `grantkit pdf` | Generate NSF-compliant PDF |
 
 ## Features
 
 | Feature | Description |
 |---------|-------------|
-| **Proposal Assembly** | Combine sections from markdown files into complete proposals |
+| **Supabase Sync** | Pull/push grants as local markdown with YAML frontmatter |
 | **NSF Validation** | Check formatting, page limits, URLs, citations against PAPPG |
-| **Budget Management** | Calculate totals, GSA per diem lookups, indirect cost calculations |
+| **Salary Validation** | Compare salaries to BLS OEWS percentiles by occupation and metro area |
+| **Budget Management** | GSA per diem lookups, indirect cost calculations |
 | **PDF Generation** | NSF-compliant PDFs with proper fonts, margins, spacing |
 | **Citation Management** | BibTeX integration with automatic bibliography |
 
-## Documentation
-
-- [Installation Guide](installation.md)
-- [CLI Reference](cli.md)
-- [Configuration](configuration.md)
-- [Competitive Landscape](landscape.md)
-
 ## Links
 
-- [GitHub Repository](https://github.com/grantkit/grantkit)
-- [Issue Tracker](https://github.com/grantkit/grantkit/issues)
-- [PyPI Package](https://pypi.org/project/grantkit/) *(coming soon)*
+- [GitHub Repository](https://github.com/GrantKit/grantkit)
+- [Landing Page](https://grantkit.io)
+- [Issue Tracker](https://github.com/GrantKit/grantkit/issues)
 
 ---
 

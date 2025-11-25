@@ -1,0 +1,35 @@
+# See https://mystmd.org/guide/quickstart for documentation
+version: 1
+project:
+  title: GrantKit Documentation
+  description: Professional tools for grant proposal assembly, validation, and AI-assisted writing
+  keywords:
+    - grants
+    - nsf
+    - proposal
+    - ai
+    - cli
+  github: https://github.com/GrantKit/grantkit
+  license: MIT
+  toc:
+    - file: index.md
+    - file: getting-started.md
+    - title: CLI Reference
+      children:
+        - file: cli/overview.md
+        - file: cli/sync.md
+        - file: cli/budget.md
+        - file: cli/validation.md
+    - title: Features
+      children:
+        - file: features/salary-validation.md
+        - file: features/travel-per-diem.md
+        - file: features/pdf-generation.md
+    - file: api-reference.md
+
+site:
+  title: GrantKit Docs
+  template: book-theme
+  options:
+    logo: logo.png
+    favicon: favicon.ico
