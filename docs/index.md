@@ -45,8 +45,8 @@ grantkit pdf --optimize
 
 ## Links
 
-- [GitHub Repository](https://github.com/MaxGhenis/grantkit)
-- [Issue Tracker](https://github.com/MaxGhenis/grantkit/issues)
+- [GitHub Repository](https://github.com/grantkit/grantkit)
+- [Issue Tracker](https://github.com/grantkit/grantkit/issues)
 - [PyPI Package](https://pypi.org/project/grantkit/) *(coming soon)*
 
 ---

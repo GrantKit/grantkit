@@ -131,7 +131,7 @@ nsf:
 ## Development
 
 ```bash
-git clone https://github.com/MaxGhenis/grantkit.git
+git clone https://github.com/grantkit/grantkit.git
 cd grantkit
 pip install -e ".[dev]"
 ```

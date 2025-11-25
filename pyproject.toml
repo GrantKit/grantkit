@@ -71,10 +71,10 @@ all = [
 grantkit = "grantkit.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/MaxGhenis/grantkit"
-Documentation = "https://github.com/MaxGhenis/grantkit#readme"
-Repository = "https://github.com/MaxGhenis/grantkit"
-Issues = "https://github.com/MaxGhenis/grantkit/issues"
+Homepage = "https://grantkit.github.io/grantkit"
+Documentation = "https://grantkit.github.io/grantkit"
+Repository = "https://github.com/grantkit/grantkit"
+Issues = "https://github.com/grantkit/grantkit/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
