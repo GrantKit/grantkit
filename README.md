@@ -1,156 +1,176 @@
 # GrantKit
 
-Professional tools for grant proposal assembly, validation, and AI-assisted writing.
+[![CI](https://github.com/GrantKit/grantkit/actions/workflows/ci.yml/badge.svg)](https://github.com/GrantKit/grantkit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-## Features
+**Professional tools for grant proposal assembly, validation, and AI-assisted writing.**
 
-- **Multi-funder support**: NSF, Arnold Ventures, and more
-- **Proposal assembly**: Combine sections into complete proposals
-- **NSF compliance validation**: Check formatting, page limits, and content rules
-- **Budget management**: Calculate and validate budgets against program caps
-- **PDF generation**: Generate NSF-compliant PDFs with proper formatting
-- **Citation management**: BibTeX integration with automatic bibliography generation
-- **AI assistance** (coming soon): Review simulation, success probability estimation
+GrantKit is an open-source CLI designed for **AI-native teams** who use AI coding agents (Claude Code, Cursor) and want the same workflow for grant writing.
 
-## Installation
+## Why GrantKit?
 
-```bash
-pip install grantkit
-```
+Other grant tools have their own AI built in. But you already have Claude Code. GrantKit gets out of the way and lets your tools do the writing.
 
-For PDF generation:
-```bash
-pip install grantkit[pdf]
-```
-
-For all features including AI:
-```bash
-pip install grantkit[all]
-```
+- **Supabase Sync** - Pull grants to local markdown, edit with AI, push back
+- **Pre-submission validation** - Catch NSF PAPPG compliance issues before you submit
+- **Salary validation** - Check personnel costs against BLS OEWS market data
+- **Travel per diem** - Automatic GSA rate lookups by city and fiscal year
+- **Open source** - Inspect, modify, and extend to your needs
 
 ## Quick Start
 
-### Initialize a new proposal
-
 ```bash
-grantkit init cssi
-```
+pip install grantkit
 
-This creates a project structure with templates for the CSSI program.
+# Set up Supabase connection
+export GRANTKIT_SUPABASE_URL="https://your-project.supabase.co"
+export GRANTKIT_SUPABASE_KEY="your-key"
 
-### Check proposal status
+# Pull grants to local markdown
+grantkit sync pull
 
-```bash
-grantkit status
-```
+# Edit with your favorite AI tool
+claude "improve the broader impacts section"
 
-### Build the proposal
-
-```bash
-grantkit build
-```
-
-### Validate NSF compliance
-
-```bash
+# Validate and push changes
 grantkit validate
+grantkit sync push
 ```
 
-### Generate PDF
+## How It Works
 
-```bash
-grantkit pdf --optimize
-```
-
-## Supported Programs
-
-| Program | Description | Budget Cap |
-|---------|-------------|------------|
-| `cssi` | Cyberinfrastructure for Sustained Scientific Innovation | $5M |
-| `pose-phase-2` | Pathways to Enable Open-Source Ecosystems | $1.5M |
-| `career` | Faculty Early Career Development | $500K |
-
-List all programs:
-```bash
-grantkit programs
-```
-
-## Project Structure
-
-GrantKit expects this structure in your project:
+GrantKit syncs between local files and the cloud. Use AI tools locally, collaborate in the browser.
 
 ```
-your-proposal/
-  grant.yaml           # Main configuration
-  docs/
-    responses/
-      project_summary.md
-      project_description.md
-      ...
-  budget/
-    budget.yaml
-  docs/
-    references.bib     # Optional BibTeX file
+┌─────────────────┐     grantkit sync pull     ┌─────────────────┐
+│                 │ ◄──────────────────────────│                 │
+│   Local Files   │                            │    Supabase     │
+│   (Markdown)    │ ──────────────────────────►│    (Cloud)      │
+│                 │     grantkit sync push     │                 │
+└─────────────────┘                            └─────────────────┘
+        │
+        │  Edit with Claude Code,
+        │  Cursor, or any AI tool
+        ▼
 ```
 
-## Configuration
+### Local File Structure
 
-Create a `grant.yaml` file:
+```
+my-grants/
+├── nsf-cssi/
+│   ├── grant.yaml
+│   └── responses/
+│       ├── abstract.md
+│       ├── broader_impacts.md
+│       └── technical_approach.md
+├── arnold-labor/
+│   └── ...
+```
 
-```yaml
-title: "Your Project Title"
-pi: "Principal Investigator Name"
-institution: "Your Institution"
+### Response Format
 
-nsf:
-  program_id: cssi-elements
-  sections:
-    - id: project_summary
-      title: "Project Summary"
-      file: docs/responses/project_summary.md
-      required: true
-    - id: project_description
-      title: "Project Description"
-      file: docs/responses/project_description.md
-      required: true
+```markdown
+---
+title: Broader Impacts
+key: broader_impacts
+word_limit: 2500
+status: draft
+---
+
+# Broader Impacts
+
+PolicyEngine democratizes policy analysis...
 ```
 
 ## CLI Commands
 
 | Command | Description |
 |---------|-------------|
-| `grantkit init <program>` | Initialize new proposal project |
-| `grantkit build` | Assemble proposal from sections |
-| `grantkit validate` | Run NSF compliance checks |
-| `grantkit status` | Show completion status |
-| `grantkit budget` | Build and validate budget |
+| `grantkit sync pull` | Download grants from Supabase to local markdown |
+| `grantkit sync push` | Upload local changes to Supabase |
+| `grantkit sync watch` | Auto-sync on file changes |
+| `grantkit validate` | Check NSF compliance |
+| `grantkit check-salaries` | Validate salaries against BLS OEWS data |
+| `grantkit budget` | Generate budget narrative and calculations |
 | `grantkit pdf` | Generate NSF-compliant PDF |
-| `grantkit programs` | List available programs |
-| `grantkit check-citations` | Verify bibliography completeness |
+
+## Salary Validation
+
+Compare proposed salaries to BLS market data:
+
+```bash
+# Check a single salary
+grantkit check-salaries --salary 150000 --occupation software_developer
+
+# Check with geographic adjustment
+grantkit check-salaries --salary 180000 --occupation software_developer --area san_francisco
+
+# Validate all personnel from budget
+grantkit check-salaries --from-budget
+```
+
+Supported occupations: `software_developer`, `data_scientist`, `cs_professor`, `economist`, `postdoc`, `statistician`, and more.
+
+## NSF Validation
+
+```bash
+grantkit validate
+```
+
+Checks:
+- Page limits (Project Summary, Description, Bio Sketches)
+- Font size and margin requirements
+- URL restrictions in project description
+- Required sections present
+- Citation completeness
+
+## Installation Options
+
+```bash
+# Core CLI
+pip install grantkit
+
+# With PDF generation
+pip install grantkit[pdf]
+
+# All features
+pip install grantkit[all]
+```
+
+## Documentation
+
+Full documentation at [docs.grantkit.io](https://docs.grantkit.io)
+
+- [Getting Started](https://docs.grantkit.io/getting-started)
+- [CLI Reference](https://docs.grantkit.io/cli/overview)
+- [Salary Validation](https://docs.grantkit.io/features/salary-validation)
+- [API Reference](https://docs.grantkit.io/api-reference)
 
 ## Development
 
 ```bash
-git clone https://github.com/grantkit/grantkit.git
+git clone https://github.com/GrantKit/grantkit.git
 cd grantkit
 pip install -e ".[dev]"
-```
 
-Run tests:
-```bash
+# Run tests
 pytest
-```
 
-Format code:
-```bash
-black .
-ruff check --fix .
+# Format code
+black . && ruff check --fix .
 ```
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-## Credits
+## Links
 
-Created by [PolicyEngine](https://policyengine.org).
+- [Website](https://grantkit.io)
+- [Documentation](https://docs.grantkit.io)
+- [GitHub](https://github.com/GrantKit/grantkit)
+- [Issues](https://github.com/GrantKit/grantkit/issues)
+
+Created by [PolicyEngine](https://policyengine.org)
