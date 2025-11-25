@@ -104,7 +104,9 @@ class TestGrantKitSync:
             }
         ]
         # Mock responses response (empty)
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
+            []
+        )
 
         sync = GrantKitSync(sync_config)
         stats = sync.pull()
@@ -124,7 +126,9 @@ class TestGrantKitSync:
                 "status": "draft",
             }
         ]
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
+            []
+        )
 
         sync = GrantKitSync(sync_config)
         sync.pull()
@@ -181,7 +185,9 @@ class TestGrantKitSync:
                 f,
             )
 
-        mock_supabase.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+        mock_supabase.table.return_value.upsert.return_value.execute.return_value = (
+            MagicMock()
+        )
 
         sync = GrantKitSync(sync_config)
         stats = sync.push(grant_id="test-grant")
@@ -212,7 +218,9 @@ This is the abstract content.
         with open(responses_dir / "abstract.md", "w") as f:
             f.write(response_content)
 
-        mock_supabase.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+        mock_supabase.table.return_value.upsert.return_value.execute.return_value = (
+            MagicMock()
+        )
 
         sync = GrantKitSync(sync_config)
         stats = sync.push(grant_id="test-grant")

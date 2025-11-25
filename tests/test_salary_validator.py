@@ -1,7 +1,8 @@
 """Tests for OEWS salary validation."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from grantkit.budget.salary_validator import (
     ACADEMIC_OCCUPATION_CODES,
@@ -19,7 +20,9 @@ class TestOEWSClient:
     def test_build_series_id_national(self):
         """Should build correct series ID for national data."""
         client = OEWSClient()
-        series_id = client._build_series_id("0000000", "15-1252", "mean_annual")
+        series_id = client._build_series_id(
+            "0000000", "15-1252", "mean_annual"
+        )
         # Format: OEUM{area}{industry}{occupation}{datatype}
         assert series_id == "OEUM000000000000015125204"
 
@@ -149,7 +152,9 @@ class TestSalaryValidator:
     def validator_with_mock(self, mock_wage_data):
         """Create validator with mocked OEWS client."""
         validator = SalaryValidator()
-        validator.oews_client.get_wage_data = MagicMock(return_value=mock_wage_data)
+        validator.oews_client.get_wage_data = MagicMock(
+            return_value=mock_wage_data
+        )
         return validator
 
     def test_validate_reasonable_salary(self, validator_with_mock):
@@ -174,7 +179,10 @@ class TestSalaryValidator:
 
         assert result.is_valid  # Warning, not error
         assert len(result.warnings) > 0
-        assert "above market median" in result.warnings[0].lower() or "percentile" in result.warnings[0].lower()
+        assert (
+            "above market median" in result.warnings[0].lower()
+            or "percentile" in result.warnings[0].lower()
+        )
 
     def test_validate_excessive_salary_error(self, validator_with_mock):
         """Should error for salary above 95th percentile."""
@@ -216,8 +224,13 @@ class TestSalaryValidator:
         """Should resolve common occupation names to SOC codes."""
         validator = SalaryValidator()
 
-        assert validator._resolve_occupation_code("software_developer") == "15-1252"
-        assert validator._resolve_occupation_code("data_scientist") == "15-2051"
+        assert (
+            validator._resolve_occupation_code("software_developer")
+            == "15-1252"
+        )
+        assert (
+            validator._resolve_occupation_code("data_scientist") == "15-2051"
+        )
         assert validator._resolve_occupation_code("cs_professor") == "25-1021"
         # Pass through already-formatted codes
         assert validator._resolve_occupation_code("15-1252") == "15-1252"
@@ -235,7 +248,9 @@ class TestSalaryValidator:
     def test_validate_budget_personnel(self, mock_wage_data):
         """Should validate multiple personnel items from budget."""
         validator = SalaryValidator()
-        validator.oews_client.get_wage_data = MagicMock(return_value=mock_wage_data)
+        validator.oews_client.get_wage_data = MagicMock(
+            return_value=mock_wage_data
+        )
 
         personnel_items = [
             {
@@ -262,7 +277,9 @@ class TestSalaryValidator:
     def test_infer_occupation_from_description(self, mock_wage_data):
         """Should infer occupation from description when not specified."""
         validator = SalaryValidator()
-        validator.oews_client.get_wage_data = MagicMock(return_value=mock_wage_data)
+        validator.oews_client.get_wage_data = MagicMock(
+            return_value=mock_wage_data
+        )
 
         personnel_items = [
             {"description": "PI salary (3 months)", "amount": 30000},

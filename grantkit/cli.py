@@ -310,9 +310,9 @@ def validate(ctx: click.Context, strict: bool, output: Optional[Path]) -> None:
         table.add_row(
             "Warnings",
             str(validation_result.warnings_count),
-            style="yellow"
-            if validation_result.warnings_count > 0
-            else "green",
+            style=(
+                "yellow" if validation_result.warnings_count > 0 else "green"
+            ),
         )
         table.add_row("Total Issues", str(len(validation_result.issues)))
 
@@ -325,16 +325,12 @@ def validate(ctx: click.Context, strict: bool, output: Optional[Path]) -> None:
                 icon = (
                     "❌"
                     if issue.severity == "error"
-                    else "⚠️"
-                    if issue.severity == "warning"
-                    else "ℹ️"
+                    else "⚠️" if issue.severity == "warning" else "ℹ️"
                 )
                 color = (
                     "red"
                     if issue.severity == "error"
-                    else "yellow"
-                    if issue.severity == "warning"
-                    else "blue"
+                    else "yellow" if issue.severity == "warning" else "blue"
                 )
 
                 console.print(f"\n{icon} [{color}]{issue.message}[/{color}]")
@@ -594,7 +590,9 @@ def check_salaries(
                         personnel_items.append(item)
 
             if not personnel_items:
-                console.print("[yellow]No personnel items found in budget[/yellow]")
+                console.print(
+                    "[yellow]No personnel items found in budget[/yellow]"
+                )
                 return
 
             console.print(
@@ -660,9 +658,13 @@ def check_salaries(
             console.print()
 
             if result.is_valid:
-                console.print("[green]✅ Salary is within reasonable range[/green]")
+                console.print(
+                    "[green]✅ Salary is within reasonable range[/green]"
+                )
             else:
-                console.print("[red]❌ Salary may be flagged by reviewers[/red]")
+                console.print(
+                    "[red]❌ Salary may be flagged by reviewers[/red]"
+                )
 
             for issue in result.issues:
                 console.print(f"[red]  • {issue}[/red]")
@@ -870,9 +872,7 @@ def export(
                     priority_icon = (
                         "🔥"
                         if suggestion.priority == 1
-                        else "⚡"
-                        if suggestion.priority == 2
-                        else "💡"
+                        else "⚡" if suggestion.priority == 2 else "💡"
                     )
                     console.print(
                         f"  {priority_icon} {suggestion.description}"
@@ -1127,9 +1127,7 @@ def check_pages(ctx: click.Context, format: str) -> None:
                 status_color = (
                     "red"
                     if page_count > page_limit
-                    else "yellow"
-                    if page_count > page_limit * 0.9
-                    else "green"
+                    else "yellow" if page_count > page_limit * 0.9 else "green"
                 )
                 console.print(
                     f"[{status_color}]Pages: {page_count}/{page_limit}[/{status_color}]"
@@ -1298,9 +1296,7 @@ def check_citations(
                 title = (
                     entry.title[:60] + "..."
                     if entry and len(entry.title) > 60
-                    else entry.title
-                    if entry
-                    else "Unknown"
+                    else entry.title if entry else "Unknown"
                 )
                 authors = (
                     ", ".join(entry.authors[:2])
@@ -1514,9 +1510,9 @@ def validate_urls(
         table.add_row(
             "Warnings",
             str(validation_result.warnings_count),
-            style="yellow"
-            if validation_result.warnings_count > 0
-            else "green",
+            style=(
+                "yellow" if validation_result.warnings_count > 0 else "green"
+            ),
         )
 
         console.print(table)
@@ -1539,16 +1535,14 @@ def validate_urls(
                     icon = (
                         "❌"
                         if issue.severity == "error"
-                        else "⚠️"
-                        if issue.severity == "warning"
-                        else "ℹ️"
+                        else "⚠️" if issue.severity == "warning" else "ℹ️"
                     )
                     color = (
                         "red"
                         if issue.severity == "error"
-                        else "yellow"
-                        if issue.severity == "warning"
-                        else "blue"
+                        else (
+                            "yellow" if issue.severity == "warning" else "blue"
+                        )
                     )
 
                     console.print(

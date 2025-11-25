@@ -141,9 +141,11 @@ class PDFGenerator:
                     references_result = self.generate_pdf(
                         references_content,
                         references_output_path,
-                        title=f"References Cited - {title}"
-                        if title
-                        else "References Cited",
+                        title=(
+                            f"References Cited - {title}"
+                            if title
+                            else "References Cited"
+                        ),
                         author=author,
                         optimize=False,  # Don't optimize references
                         validate=validate,
@@ -194,12 +196,14 @@ class PDFGenerator:
                 warnings=warnings + main_result.warnings,
                 log_path=main_result.log_path,
                 main_document_pages=main_result.page_count,
-                references_pages=references_result.page_count
-                if references_result
-                else 0,
-                references_path=references_output_path
-                if references_result and references_result.success
-                else None,
+                references_pages=(
+                    references_result.page_count if references_result else 0
+                ),
+                references_path=(
+                    references_output_path
+                    if references_result and references_result.success
+                    else None
+                ),
                 citation_count=len(used_citations),
             )
 
@@ -364,12 +368,16 @@ class PDFGenerator:
                 return PDFGenerationResult(
                     success=result.success,
                     output_path=result.output_path,
-                    page_count=validation_result.page_count
-                    if validation_result
-                    else 0,
-                    file_size_mb=validation_result.file_size_mb
-                    if validation_result
-                    else 0.0,
+                    page_count=(
+                        validation_result.page_count
+                        if validation_result
+                        else 0
+                    ),
+                    file_size_mb=(
+                        validation_result.file_size_mb
+                        if validation_result
+                        else 0.0
+                    ),
                     generation_time_seconds=generation_time,
                     validation_result=validation_result,
                     optimization_suggestions=optimization_suggestions,
@@ -830,9 +838,11 @@ h1, h2, h3 {{
             "can_generate_pdf": deps["pandoc"]
             and deps["xelatex"]
             or deps["weasyprint"],
-            "preferred_engine": "pandoc"
-            if deps["pandoc"] and deps["xelatex"]
-            else "weasyprint",
+            "preferred_engine": (
+                "pandoc"
+                if deps["pandoc"] and deps["xelatex"]
+                else "weasyprint"
+            ),
             "can_validate_pdf": deps["pypdf"],
             "can_count_pages": deps["pypdf"] or self._has_pdf_tools(),
             "dependencies": deps,

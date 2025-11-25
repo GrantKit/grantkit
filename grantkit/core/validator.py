@@ -780,9 +780,7 @@ class NSFValidator:
                         icon = (
                             "❌"
                             if issue.severity == "error"
-                            else "⚠️"
-                            if issue.severity == "warning"
-                            else "ℹ️"
+                            else "⚠️" if issue.severity == "warning" else "ℹ️"
                         )
                         report_lines.append(f"\n{icon} **{issue.message}**")
 

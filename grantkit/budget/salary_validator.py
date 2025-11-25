@@ -189,7 +189,14 @@ class OEWSClient:
 
         # Build series IDs for different wage measures
         series_ids = []
-        for dtype in ["mean_annual", "median", "pct_10", "pct_25", "pct_75", "pct_90"]:
+        for dtype in [
+            "mean_annual",
+            "median",
+            "pct_10",
+            "pct_25",
+            "pct_75",
+            "pct_90",
+        ]:
             series_ids.append(
                 self._build_series_id(area_code, occupation_code, dtype)
             )
@@ -217,7 +224,9 @@ class OEWSClient:
                 result = json.loads(response.read().decode("utf-8"))
 
             if result.get("status") != "REQUEST_SUCCEEDED":
-                logger.warning(f"BLS API request failed: {result.get('message')}")
+                logger.warning(
+                    f"BLS API request failed: {result.get('message')}"
+                )
                 return None
 
             # Parse results
@@ -241,7 +250,9 @@ class OEWSClient:
                 for dp in data_points:
                     if dp.get("year") == str(year):
                         try:
-                            value = float(dp.get("value", "0").replace(",", ""))
+                            value = float(
+                                dp.get("value", "0").replace(",", "")
+                            )
                         except ValueError:
                             continue
                         break
@@ -408,7 +419,9 @@ class SalaryValidator:
         result.wage_data = wage_data
 
         # Calculate percentile
-        percentile = self.oews_client.estimate_percentile(annual_salary, wage_data)
+        percentile = self.oews_client.estimate_percentile(
+            annual_salary, wage_data
+        )
         result.percentile = percentile
 
         role_name = role_description or occupation
@@ -483,7 +496,10 @@ class SalaryValidator:
             # Try to infer occupation from description
             if not occupation:
                 desc_lower = item.get("description", "").lower()
-                if "pi" in desc_lower or "principal investigator" in desc_lower:
+                if (
+                    "pi" in desc_lower
+                    or "principal investigator" in desc_lower
+                ):
                     occupation = "postsecondary_teacher"
                 elif "postdoc" in desc_lower:
                     occupation = "postdoc"

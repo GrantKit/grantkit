@@ -367,9 +367,11 @@ class GrantAssembler:
             "incomplete_sections": len(incomplete),
             "required_incomplete": len(required_incomplete),
             "total_words": total_words,
-            "completion_percentage": len(complete) / len(self.sections) * 100
-            if self.sections
-            else 0,
+            "completion_percentage": (
+                len(complete) / len(self.sections) * 100
+                if self.sections
+                else 0
+            ),
             "sections": [
                 {
                     "title": s.title,
