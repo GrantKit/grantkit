@@ -32,6 +32,7 @@ jobs:
         run: |
           cd docs
           myst build --html
+          cp CNAME _build/html/
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

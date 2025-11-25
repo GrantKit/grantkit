@@ -74,7 +74,7 @@ grantkit = "grantkit.cli:main"
 
 [project.urls]
 Homepage = "https://grantkit.io"
-Documentation = "https://GrantKit.github.io/grantkit"
+Documentation = "https://docs.grantkit.io"
 Repository = "https://github.com/GrantKit/grantkit"
 Issues = "https://github.com/GrantKit/grantkit/issues"
 
