@@ -1,0 +1,370 @@
+"""Supabase sync functionality for GrantKit."""
+
+import os
+import json
+import logging
+from pathlib import Path
+from typing import Optional, Dict, List, Any
+from dataclasses import dataclass
+from datetime import datetime
+
+import yaml
+from supabase import create_client, Client
+
+logger = logging.getLogger(__name__)
+
+# Default Supabase config (can be overridden via env vars or config file)
+DEFAULT_SUPABASE_URL = "https://jgrvjvqhrngcdmtrojlk.supabase.co"
+
+
+@dataclass
+class SyncConfig:
+    """Configuration for Supabase sync."""
+
+    supabase_url: str
+    supabase_key: str
+    grants_dir: Path
+    grant_id: Optional[str] = None  # If set, only sync this grant
+
+    @classmethod
+    def from_env(cls, grants_dir: Path) -> "SyncConfig":
+        """Create config from environment variables."""
+        url = os.environ.get("GRANTKIT_SUPABASE_URL", DEFAULT_SUPABASE_URL)
+        key = os.environ.get("GRANTKIT_SUPABASE_KEY")
+
+        if not key:
+            raise ValueError(
+                "GRANTKIT_SUPABASE_KEY environment variable is required. "
+                "Get your key from https://supabase.com/dashboard/project/_/settings/api"
+            )
+
+        return cls(supabase_url=url, supabase_key=key, grants_dir=grants_dir)
+
+    @classmethod
+    def from_file(cls, config_path: Path, grants_dir: Path) -> "SyncConfig":
+        """Create config from a YAML config file."""
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+
+        sync_config = config.get("sync", {})
+        url = sync_config.get(
+            "supabase_url",
+            os.environ.get("GRANTKIT_SUPABASE_URL", DEFAULT_SUPABASE_URL),
+        )
+        key = sync_config.get(
+            "supabase_key", os.environ.get("GRANTKIT_SUPABASE_KEY")
+        )
+
+        if not key:
+            raise ValueError(
+                "Supabase key not found in config or environment. "
+                "Set GRANTKIT_SUPABASE_KEY or add to grantkit.yaml"
+            )
+
+        return cls(
+            supabase_url=url,
+            supabase_key=key,
+            grants_dir=grants_dir,
+            grant_id=sync_config.get("grant_id"),
+        )
+
+
+class GrantKitSync:
+    """Handles syncing between local files and Supabase."""
+
+    def __init__(self, config: SyncConfig):
+        self.config = config
+        self.client: Client = create_client(
+            config.supabase_url, config.supabase_key
+        )
+
+    def pull(self, grant_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Pull grants and responses from Supabase to local files.
+
+        Args:
+            grant_id: Optional specific grant to pull. If None, pulls all.
+
+        Returns:
+            Dict with stats about what was pulled.
+        """
+        stats = {"grants": 0, "responses": 0, "files_written": 0}
+
+        # Fetch grants
+        query = self.client.table("grants").select("*")
+        if grant_id:
+            query = query.eq("id", grant_id)
+        elif self.config.grant_id:
+            query = query.eq("id", self.config.grant_id)
+
+        result = query.execute()
+        grants = result.data
+
+        for grant in grants:
+            grant_dir = self.config.grants_dir / grant["id"]
+            grant_dir.mkdir(parents=True, exist_ok=True)
+
+            # Write grant metadata
+            grant_meta = {
+                "id": grant["id"],
+                "name": grant["name"],
+                "foundation": grant["foundation"],
+                "program": grant.get("program"),
+                "deadline": grant.get("deadline"),
+                "status": grant.get("status"),
+                "amount_requested": grant.get("amount_requested"),
+                "duration_years": grant.get("duration_years"),
+                "solicitation_url": grant.get("solicitation_url"),
+                "repo_url": grant.get("repo_url"),
+            }
+            with open(grant_dir / "grant.yaml", "w") as f:
+                yaml.dump(grant_meta, f, default_flow_style=False)
+            stats["files_written"] += 1
+            stats["grants"] += 1
+
+            # Fetch responses for this grant
+            responses_result = (
+                self.client.table("responses")
+                .select("*")
+                .eq("grant_id", grant["id"])
+                .execute()
+            )
+            responses = responses_result.data
+
+            # Create responses directory
+            responses_dir = grant_dir / "responses"
+            responses_dir.mkdir(exist_ok=True)
+
+            for response in responses:
+                # Write response as markdown
+                filename = f"{response['key']}.md"
+                filepath = responses_dir / filename
+
+                # Add frontmatter with metadata
+                frontmatter = {
+                    "title": response.get("title", response["key"]),
+                    "key": response["key"],
+                    "status": response.get("status", "draft"),
+                    "word_limit": response.get("word_limit"),
+                    "char_limit": response.get("char_limit"),
+                    "question": response.get("question"),
+                }
+                # Remove None values
+                frontmatter = {
+                    k: v for k, v in frontmatter.items() if v is not None
+                }
+
+                content = response.get("content", "")
+                with open(filepath, "w") as f:
+                    f.write("---\n")
+                    yaml.dump(frontmatter, f, default_flow_style=False)
+                    f.write("---\n\n")
+                    f.write(content)
+
+                stats["files_written"] += 1
+                stats["responses"] += 1
+
+            logger.info(
+                f"Pulled grant '{grant['name']}' with "
+                f"{len(responses)} responses"
+            )
+
+        return stats
+
+    def push(self, grant_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Push local files to Supabase.
+
+        Args:
+            grant_id: Optional specific grant to push. If None, pushes all.
+
+        Returns:
+            Dict with stats about what was pushed.
+        """
+        stats = {"grants": 0, "responses": 0, "errors": []}
+
+        # Find grant directories
+        if grant_id:
+            grant_dirs = [self.config.grants_dir / grant_id]
+        elif self.config.grant_id:
+            grant_dirs = [self.config.grants_dir / self.config.grant_id]
+        else:
+            grant_dirs = [
+                d
+                for d in self.config.grants_dir.iterdir()
+                if d.is_dir() and (d / "grant.yaml").exists()
+            ]
+
+        for grant_dir in grant_dirs:
+            grant_yaml = grant_dir / "grant.yaml"
+            if not grant_yaml.exists():
+                logger.warning(f"No grant.yaml in {grant_dir}, skipping")
+                continue
+
+            # Read grant metadata
+            with open(grant_yaml) as f:
+                grant_meta = yaml.safe_load(f)
+
+            # Upsert grant
+            try:
+                self.client.table("grants").upsert(
+                    grant_meta, on_conflict="id"
+                ).execute()
+                stats["grants"] += 1
+                logger.info(f"Pushed grant '{grant_meta.get('name', grant_dir.name)}'")
+            except Exception as e:
+                stats["errors"].append(f"Grant {grant_dir.name}: {e}")
+                logger.error(f"Failed to push grant {grant_dir.name}: {e}")
+                continue
+
+            # Push responses
+            responses_dir = grant_dir / "responses"
+            if responses_dir.exists():
+                for md_file in responses_dir.glob("*.md"):
+                    try:
+                        response_data = self._parse_response_file(
+                            md_file, grant_meta["id"]
+                        )
+                        self.client.table("responses").upsert(
+                            response_data, on_conflict="grant_id,key"
+                        ).execute()
+                        stats["responses"] += 1
+                    except Exception as e:
+                        stats["errors"].append(f"Response {md_file.name}: {e}")
+                        logger.error(
+                            f"Failed to push response {md_file.name}: {e}"
+                        )
+
+        return stats
+
+    def _parse_response_file(
+        self, filepath: Path, grant_id: str
+    ) -> Dict[str, Any]:
+        """Parse a markdown response file with YAML frontmatter."""
+        with open(filepath) as f:
+            content = f.read()
+
+        # Parse frontmatter
+        if content.startswith("---"):
+            parts = content.split("---", 2)
+            if len(parts) >= 3:
+                frontmatter = yaml.safe_load(parts[1])
+                body = parts[2].strip()
+            else:
+                frontmatter = {}
+                body = content
+        else:
+            frontmatter = {}
+            body = content
+
+        # Build response data
+        key = frontmatter.get("key", filepath.stem)
+        return {
+            "grant_id": grant_id,
+            "key": key,
+            "title": frontmatter.get("title", key.replace("_", " ").title()),
+            "content": body,
+            "status": frontmatter.get("status", "draft" if body else "empty"),
+            "word_limit": frontmatter.get("word_limit"),
+            "char_limit": frontmatter.get("char_limit"),
+            "question": frontmatter.get("question"),
+        }
+
+    def watch(
+        self, callback: Optional[callable] = None, poll_interval: float = 1.0
+    ):
+        """
+        Watch for file changes and auto-sync.
+
+        Args:
+            callback: Optional callback function called after each sync.
+            poll_interval: How often to check for changes (seconds).
+        """
+        from watchdog.observers import Observer
+        from watchdog.events import FileSystemEventHandler, FileModifiedEvent
+
+        sync_instance = self
+
+        class SyncHandler(FileSystemEventHandler):
+            def __init__(self):
+                self.last_sync = {}
+
+            def on_modified(self, event):
+                if event.is_directory:
+                    return
+
+                filepath = Path(event.src_path)
+
+                # Only sync markdown files in responses dirs or grant.yaml
+                if filepath.name == "grant.yaml" or (
+                    filepath.suffix == ".md"
+                    and "responses" in filepath.parts
+                ):
+                    # Debounce - don't sync same file within 1 second
+                    now = datetime.now().timestamp()
+                    if (
+                        filepath in self.last_sync
+                        and now - self.last_sync[filepath] < 1.0
+                    ):
+                        return
+                    self.last_sync[filepath] = now
+
+                    # Find grant_id from path
+                    grant_id = None
+                    for part in filepath.parts:
+                        if (
+                            sync_instance.config.grants_dir / part
+                        ).is_dir():
+                            grant_id = part
+                            break
+
+                    if grant_id:
+                        logger.info(f"File changed: {filepath.name}, syncing...")
+                        try:
+                            stats = sync_instance.push(grant_id)
+                            logger.info(
+                                f"Synced: {stats['responses']} responses"
+                            )
+                            if callback:
+                                callback(stats)
+                        except Exception as e:
+                            logger.error(f"Sync failed: {e}")
+
+        observer = Observer()
+        observer.schedule(
+            SyncHandler(), str(self.config.grants_dir), recursive=True
+        )
+        observer.start()
+
+        logger.info(
+            f"Watching {self.config.grants_dir} for changes. Press Ctrl+C to stop."
+        )
+
+        try:
+            import time
+
+            while True:
+                time.sleep(poll_interval)
+        except KeyboardInterrupt:
+            observer.stop()
+            logger.info("Watch stopped.")
+
+        observer.join()
+
+
+def get_sync_client(grants_dir: Path) -> GrantKitSync:
+    """
+    Get a configured sync client.
+
+    Looks for config in this order:
+    1. grantkit.yaml in grants_dir
+    2. Environment variables
+    """
+    config_file = grants_dir / "grantkit.yaml"
+
+    if config_file.exists():
+        config = SyncConfig.from_file(config_file, grants_dir)
+    else:
+        config = SyncConfig.from_env(grants_dir)
+
+    return GrantKitSync(config)
