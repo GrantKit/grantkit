@@ -1,15 +1,15 @@
 """Supabase sync functionality for GrantKit."""
 
-import os
-import json
 import logging
-from pathlib import Path
-from typing import Optional, Dict, List, Any
+import os
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 import yaml
-from supabase import create_client, Client
+
+from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +211,9 @@ class GrantKitSync:
                     grant_meta, on_conflict="id"
                 ).execute()
                 stats["grants"] += 1
-                logger.info(f"Pushed grant '{grant_meta.get('name', grant_dir.name)}'")
+                logger.info(
+                    f"Pushed grant '{grant_meta.get('name', grant_dir.name)}'"
+                )
             except Exception as e:
                 stats["errors"].append(f"Grant {grant_dir.name}: {e}")
                 logger.error(f"Failed to push grant {grant_dir.name}: {e}")
@@ -280,8 +282,8 @@ class GrantKitSync:
             callback: Optional callback function called after each sync.
             poll_interval: How often to check for changes (seconds).
         """
+        from watchdog.events import FileSystemEventHandler
         from watchdog.observers import Observer
-        from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
         sync_instance = self
 
@@ -297,8 +299,7 @@ class GrantKitSync:
 
                 # Only sync markdown files in responses dirs or grant.yaml
                 if filepath.name == "grant.yaml" or (
-                    filepath.suffix == ".md"
-                    and "responses" in filepath.parts
+                    filepath.suffix == ".md" and "responses" in filepath.parts
                 ):
                     # Debounce - don't sync same file within 1 second
                     now = datetime.now().timestamp()
@@ -312,14 +313,14 @@ class GrantKitSync:
                     # Find grant_id from path
                     grant_id = None
                     for part in filepath.parts:
-                        if (
-                            sync_instance.config.grants_dir / part
-                        ).is_dir():
+                        if (sync_instance.config.grants_dir / part).is_dir():
                             grant_id = part
                             break
 
                     if grant_id:
-                        logger.info(f"File changed: {filepath.name}, syncing...")
+                        logger.info(
+                            f"File changed: {filepath.name}, syncing..."
+                        )
                         try:
                             stats = sync_instance.push(grant_id)
                             logger.info(

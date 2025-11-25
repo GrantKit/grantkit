@@ -9,8 +9,8 @@ import pytest
 import yaml
 
 from grantkit.sync import (
-    SyncConfig,
     GrantKitSync,
+    SyncConfig,
     get_sync_client,
 )
 
@@ -33,7 +33,10 @@ class TestSyncConfig:
         ):
             config = SyncConfig.from_env(Path("/tmp"))
             assert config.supabase_key == "test-key"
-            assert config.supabase_url == "https://jgrvjvqhrngcdmtrojlk.supabase.co"
+            assert (
+                config.supabase_url
+                == "https://jgrvjvqhrngcdmtrojlk.supabase.co"
+            )
             assert config.grants_dir == Path("/tmp")
 
     def test_from_env_custom_url(self):
@@ -101,9 +104,7 @@ class TestGrantKitSync:
             }
         ]
         # Mock responses response (empty)
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
-            []
-        )
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
 
         sync = GrantKitSync(sync_config)
         stats = sync.pull()
@@ -123,9 +124,7 @@ class TestGrantKitSync:
                 "status": "draft",
             }
         ]
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
-            []
-        )
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
 
         sync = GrantKitSync(sync_config)
         sync.pull()
@@ -174,13 +173,15 @@ class TestGrantKitSync:
         grant_dir.mkdir(parents=True)
         with open(grant_dir / "grant.yaml", "w") as f:
             yaml.dump(
-                {"id": "test-grant", "name": "Test Grant", "foundation": "Test"},
+                {
+                    "id": "test-grant",
+                    "name": "Test Grant",
+                    "foundation": "Test",
+                },
                 f,
             )
 
-        mock_supabase.table.return_value.upsert.return_value.execute.return_value = (
-            MagicMock()
-        )
+        mock_supabase.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
         sync = GrantKitSync(sync_config)
         stats = sync.push(grant_id="test-grant")
@@ -211,9 +212,7 @@ This is the abstract content.
         with open(responses_dir / "abstract.md", "w") as f:
             f.write(response_content)
 
-        mock_supabase.table.return_value.upsert.return_value.execute.return_value = (
-            MagicMock()
-        )
+        mock_supabase.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
         sync = GrantKitSync(sync_config)
         stats = sync.push(grant_id="test-grant")
@@ -251,7 +250,9 @@ With multiple lines.
         assert "The response content here." in result["content"]
         assert "With multiple lines." in result["content"]
 
-    def test_parse_response_file_no_frontmatter(self, sync_config, mock_supabase):
+    def test_parse_response_file_no_frontmatter(
+        self, sync_config, mock_supabase
+    ):
         """Should handle files without frontmatter."""
         responses_dir = sync_config.grants_dir / "responses"
         responses_dir.mkdir(parents=True)

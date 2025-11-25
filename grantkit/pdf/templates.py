@@ -6,18 +6,18 @@ from typing import Dict, Optional
 
 class LaTeXTemplateManager:
     """Manages LaTeX templates for NSF proposal generation."""
-    
+
     def __init__(self):
         self.template_dir = Path(__file__).parent / "templates"
         self.template_dir.mkdir(exist_ok=True)
-        
+
     def get_nsf_template(self, optimize_space: bool = True) -> str:
         """Get NSF-optimized LaTeX template."""
         if optimize_space:
             return self._get_space_optimized_template()
         else:
             return self._get_standard_template()
-    
+
     def _get_space_optimized_template(self) -> str:
         """LaTeX template optimized to maximize content within NSF PAPPG 24-1 requirements."""
         return r"""
@@ -138,7 +138,7 @@ $endif$
 
 \end{document}
 """
-    
+
     def _get_standard_template(self) -> str:
         """Standard LaTeX template with NSF PAPPG 24-1 compliance."""
         return r"""
@@ -215,27 +215,27 @@ $endif$
 
 \end{document}
 """
-    
+
     def save_template(self, template_name: str, content: str) -> Path:
         """Save a template to the templates directory."""
         template_path = self.template_dir / f"{template_name}.tex"
-        template_path.write_text(content, encoding='utf-8')
+        template_path.write_text(content, encoding="utf-8")
         return template_path
-    
+
     def get_template_path(self, template_name: str) -> Optional[Path]:
         """Get path to a saved template."""
         template_path = self.template_dir / f"{template_name}.tex"
         return template_path if template_path.exists() else None
-    
+
     def create_nsf_templates(self) -> Dict[str, Path]:
         """Create and save all NSF templates."""
         templates = {
             "nsf_optimized": self._get_space_optimized_template(),
             "nsf_standard": self._get_standard_template(),
         }
-        
+
         paths = {}
         for name, content in templates.items():
             paths[name] = self.save_template(name, content)
-            
+
         return paths

@@ -1,6 +1,5 @@
 """Tests for core GrantKit functionality."""
 
-import pytest
 from grantkit import __version__
 
 
@@ -11,7 +10,12 @@ def test_version():
 
 def test_imports():
     """Test that main exports are importable."""
-    from grantkit import GrantAssembler, NSFValidator, BudgetManager, ProgramRegistry
+    from grantkit import (
+        BudgetManager,
+        GrantAssembler,
+        NSFValidator,
+        ProgramRegistry,
+    )
 
     assert GrantAssembler is not None
     assert NSFValidator is not None

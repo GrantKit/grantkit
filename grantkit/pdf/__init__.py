@@ -4,11 +4,11 @@ This module provides NSF-compliant PDF generation with optimized formatting
 to maximize content while adhering to strict formatting requirements.
 """
 
+from .config import NSFProgramConfig, PDFConfig
 from .generator import PDFGenerator
-from .templates import LaTeXTemplateManager
 from .optimizer import ContentOptimizer
+from .templates import LaTeXTemplateManager
 from .validator import PDFValidator
-from .config import PDFConfig, NSFProgramConfig
 
 __all__ = [
     "PDFGenerator",
