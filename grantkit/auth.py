@@ -174,10 +174,21 @@ def device_login(timeout: int = 300) -> Optional[Credentials]:
     # Open browser
     webbrowser.open(auth_url)
 
-    print("Waiting for authentication...")
-
     # Create Supabase client for polling
     client: Client = create_client(supabase_url, supabase_key)
+
+    # Create the pending device code in the database
+    # This allows the web app to find and complete it
+    try:
+        client.table("device_codes").insert(
+            {"code": device_code, "status": "pending"}
+        ).execute()
+    except Exception as e:
+        logger.error(f"Failed to create device code: {e}")
+        print(f"\nFailed to initiate login. Please try again.")
+        return None
+
+    print("Waiting for authentication...")
 
     # Poll for completion
     poll_interval = 2  # seconds
@@ -211,8 +222,8 @@ def device_login(timeout: int = 300) -> Optional[Credentials]:
                 # status == 'pending' - keep polling
 
         except Exception as e:
-            # Row not found yet - keep polling
-            logger.debug(f"Poll: {e}")
+            # Unexpected error - log and continue polling
+            logger.debug(f"Poll error: {e}")
 
         time.sleep(poll_interval)
 
