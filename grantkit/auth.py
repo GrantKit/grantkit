@@ -81,7 +81,9 @@ def clear_credentials() -> None:
 
 def refresh_access_token(creds: Credentials) -> Optional[Credentials]:
     """Refresh an expired access token using the refresh token."""
-    supabase_url = os.environ.get("GRANTKIT_SUPABASE_URL", DEFAULT_SUPABASE_URL)
+    supabase_url = os.environ.get(
+        "GRANTKIT_SUPABASE_URL", DEFAULT_SUPABASE_URL
+    )
     # Use anon key for refresh - Supabase handles the refresh token validation
     supabase_key = os.environ.get(
         "GRANTKIT_SUPABASE_ANON_KEY",
@@ -124,7 +126,9 @@ def get_authenticated_client() -> Optional[Client]:
         if not creds:
             return None
 
-    supabase_url = os.environ.get("GRANTKIT_SUPABASE_URL", DEFAULT_SUPABASE_URL)
+    supabase_url = os.environ.get(
+        "GRANTKIT_SUPABASE_URL", DEFAULT_SUPABASE_URL
+    )
     # Use anon key for initial client creation
     supabase_key = os.environ.get(
         "GRANTKIT_SUPABASE_ANON_KEY",
@@ -156,7 +160,9 @@ def device_login(timeout: int = 300) -> Optional[Credentials]:
     Returns:
         Credentials if successful, None otherwise
     """
-    supabase_url = os.environ.get("GRANTKIT_SUPABASE_URL", DEFAULT_SUPABASE_URL)
+    supabase_url = os.environ.get(
+        "GRANTKIT_SUPABASE_URL", DEFAULT_SUPABASE_URL
+    )
     supabase_key = os.environ.get(
         "GRANTKIT_SUPABASE_ANON_KEY",
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpncnZqdnFocm5nY2RtdHJvamxrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNTU4MTIsImV4cCI6MjA3OTYzMTgxMn0.hbUgodUx4lAzV7nsRRqDoyvSyOOnoPxBVLzIj0AlOss",
@@ -168,7 +174,7 @@ def device_login(timeout: int = 300) -> Optional[Credentials]:
     # Build authorization URL
     auth_url = f"{APP_URL}/auth/device?code={device_code}"
 
-    print(f"\nOpening browser to complete authentication...")
+    print("\nOpening browser to complete authentication...")
     print(f"If browser doesn't open, visit: {auth_url}\n")
 
     # Open browser
@@ -185,7 +191,7 @@ def device_login(timeout: int = 300) -> Optional[Credentials]:
         ).execute()
     except Exception as e:
         logger.error(f"Failed to create device code: {e}")
-        print(f"\nFailed to initiate login. Please try again.")
+        print("\nFailed to initiate login. Please try again.")
         return None
 
     print("Waiting for authentication...")
