@@ -694,6 +694,178 @@ def validate_biosketch(ctx: click.Context, file_path: Optional[Path]) -> None:
 
 
 @main.command()
+@click.argument("project_dir", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--archive-dir",
+    "-d",
+    type=click.Path(path_type=Path),
+    default="archive",
+    help="Directory to store archived projects (default: ./archive)",
+)
+@click.option(
+    "--reason",
+    "-r",
+    help="Reason for archiving (e.g., 'submitted', 'rejected', 'superseded')",
+)
+@click.option("--force", "-f", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def archive(
+    ctx: click.Context,
+    project_dir: Path,
+    archive_dir: Path,
+    reason: Optional[str],
+    force: bool,
+) -> None:
+    """Archive a grant project.
+
+    Moves the project to an archive directory with timestamp and optional reason.
+    Useful for preserving old versions before updating with new templates.
+
+    Examples:
+
+        grantkit archive nsf-cssi                     # Archive to ./archive/
+
+        grantkit archive nsf-cssi -r "superseded"    # With reason
+
+        grantkit archive nsf-cssi -d old-grants      # Custom archive dir
+    """
+    import shutil
+
+    import yaml
+
+    project_dir = Path(project_dir).resolve()
+    if not project_dir.exists():
+        console.print(f"[red]❌ Directory not found: {project_dir}[/red]")
+        sys.exit(1)
+
+    # Try to get project name from grant.yaml
+    project_name = project_dir.name
+    grant_yaml = project_dir / "grant.yaml"
+    if grant_yaml.exists():
+        try:
+            with open(grant_yaml, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+            title = config.get("grant", {}).get("title", "")
+            if title:
+                console.print(f"[bold]Project:[/bold] {title}")
+        except Exception:
+            pass
+
+    # Generate archive name with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d")
+    archive_name = f"{project_name}-{timestamp}"
+    if reason:
+        # Sanitize reason for filename
+        safe_reason = reason.lower().replace(" ", "-")[:20]
+        archive_name = f"{project_name}-{timestamp}-{safe_reason}"
+
+    # Ensure archive directory exists
+    archive_path = Path(archive_dir).resolve()
+    archive_path.mkdir(parents=True, exist_ok=True)
+
+    dest_path = archive_path / archive_name
+
+    # Check for conflicts
+    if dest_path.exists():
+        console.print(f"[red]❌ Archive already exists: {dest_path}[/red]")
+        console.print(
+            "[dim]Use a different reason or wait until tomorrow[/dim]"
+        )
+        sys.exit(1)
+
+    # Confirm
+    if not force:
+        console.print("\n[bold]Archive Details:[/bold]")
+        console.print(f"  Source: {project_dir}")
+        console.print(f"  Destination: {dest_path}")
+        if reason:
+            console.print(f"  Reason: {reason}")
+
+        if not click.confirm("\nProceed with archive?"):
+            console.print("[yellow]Cancelled.[/yellow]")
+            return
+
+    try:
+        # Move the directory
+        shutil.move(str(project_dir), str(dest_path))
+
+        # Create an archive metadata file
+        metadata = {
+            "original_name": project_name,
+            "original_path": str(project_dir),
+            "archived_at": datetime.now().isoformat(),
+            "reason": reason,
+        }
+        metadata_path = dest_path / ".archive_metadata.yaml"
+        with open(metadata_path, "w", encoding="utf-8") as f:
+            yaml.dump(metadata, f, default_flow_style=False)
+
+        console.print(f"\n[green]✅ Archived to: {dest_path}[/green]")
+        console.print("\n[dim]The original directory has been moved.[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]❌ Archive failed: {e}[/red]")
+        sys.exit(1)
+
+
+@main.command("list-archived")
+@click.option(
+    "--archive-dir",
+    "-d",
+    type=click.Path(exists=True, path_type=Path),
+    default="archive",
+    help="Directory containing archived projects",
+)
+@click.pass_context
+def list_archived(ctx: click.Context, archive_dir: Path) -> None:
+    """List archived grant projects."""
+    import yaml
+
+    archive_path = Path(archive_dir).resolve()
+    if not archive_path.exists():
+        console.print(
+            f"[yellow]No archive directory found: {archive_path}[/yellow]"
+        )
+        return
+
+    archived = list(archive_path.iterdir())
+    if not archived:
+        console.print("[yellow]No archived projects found.[/yellow]")
+        return
+
+    table = Table(title="Archived Projects")
+    table.add_column("Name", style="bold")
+    table.add_column("Archived", justify="right")
+    table.add_column("Reason")
+    table.add_column("Original Path", style="dim")
+
+    for item in sorted(archived):
+        if not item.is_dir():
+            continue
+
+        metadata_file = item / ".archive_metadata.yaml"
+        archived_at = "—"
+        reason = "—"
+        original_path = "—"
+
+        if metadata_file.exists():
+            try:
+                with open(metadata_file, "r", encoding="utf-8") as f:
+                    metadata = yaml.safe_load(f)
+                archived_at = metadata.get("archived_at", "—")[
+                    :10
+                ]  # Date only
+                reason = metadata.get("reason") or "—"
+                original_path = metadata.get("original_path", "—")
+            except Exception:
+                pass
+
+        table.add_row(item.name, archived_at, reason, original_path)
+
+    console.print(table)
+
+
+@main.command()
 @click.option(
     "--output",
     "-o",
