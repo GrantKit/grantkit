@@ -1,0 +1,10 @@
+amount_requested: 599968
+deadline: '2025-12-01'
+duration_years: 3
+foundation: National Science Foundation
+id: nsf-cssi-elements
+name: Scalable Policy Microsimulation Infrastructure
+program: CSSI Elements
+repo_url: https://github.com/PolicyEngine/grants/tree/master/nsf-cssi-elements/
+solicitation_url: https://www.nsf.gov/funding/opportunities/cssi-cyberinfrastructure-sustained-scientific-innovation
+status: draft

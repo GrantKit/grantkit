@@ -11,6 +11,8 @@ import yaml
 
 from supabase import Client, create_client
 
+from .auth import get_authenticated_client, is_logged_in
+
 logger = logging.getLogger(__name__)
 
 # Default Supabase config (can be overridden via env vars or config file)
@@ -421,10 +423,28 @@ def get_sync_client(grants_dir: Path) -> GrantKitSync:
     """
     Get a configured sync client.
 
-    Looks for config in this order:
-    1. grantkit.yaml in grants_dir
-    2. Environment variables
+    Looks for auth/config in this order:
+    1. Logged in user credentials (via `grantkit auth login`)
+    2. grantkit.yaml in grants_dir
+    3. Environment variables
     """
+    # First, try to use authenticated client from OAuth login
+    if is_logged_in():
+        auth_client = get_authenticated_client()
+        if auth_client:
+            logger.info("Using authenticated session")
+            # Create a config with dummy key (client is already authenticated)
+            config = SyncConfig(
+                supabase_url=DEFAULT_SUPABASE_URL,
+                supabase_key="authenticated",  # Not used - client is pre-authenticated
+                grants_dir=grants_dir,
+            )
+            sync = GrantKitSync.__new__(GrantKitSync)
+            sync.config = config
+            sync.client = auth_client
+            return sync
+
+    # Fall back to config file or env vars
     config_file = grants_dir / "grantkit.yaml"
 
     if config_file.exists():
