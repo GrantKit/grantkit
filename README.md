@@ -2,17 +2,41 @@
 
 [![CI](https://github.com/GrantKit/grantkit/actions/workflows/ci.yml/badge.svg)](https://github.com/GrantKit/grantkit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 
-**Professional tools for grant proposal assembly, validation, and AI-assisted writing.**
+**Grant writing for the AI agent era.**
 
-GrantKit is an open-source CLI designed for **AI-native teams** who use AI coding agents (Claude Code, Cursor) and want the same workflow for grant writing.
+GrantKit syncs your grants between a cloud database and local markdown files—so AI coding agents can edit them like code.
 
-## Why GrantKit?
+## The Paradigm
+
+> "2023 was the year of the chatbot. 2024 was the year of RAG and finetuning. 2025 has been the year of MCP and tool use. **2026 will be the year of the computer environment and filesystem.**"
+>
+> — [Alex Albert, Anthropic](https://x.com/alexalbert__/status/1983209299624243529)
+
+AI agents like Claude Code, Cursor, Gemini CLI, and Codex are transforming how we write code. They read files, understand context, make surgical edits, and commit changes—all with full git history and diff review.
+
+**But most grant tools trap your content in web UIs where AI can't help.**
+
+GrantKit bridges this gap:
+- Your grants live in **Supabase** for team collaboration and web access
+- You edit them as **local markdown files** where AI agents excel
+- Changes sync bidirectionally with conflict detection
+
+## Why Files, Not Apps?
 
 Other grant tools have their own AI built in. But you already have Claude Code. GrantKit gets out of the way and lets your tools do the writing.
 
+When your grants are files:
+- **AI agents can read the full context** (not just what fits in an API response)
+- **Changes are reviewable diffs** (not opaque database mutations)
+- **Git provides history and rollback** (not "undo" buttons with limited memory)
+- **You control the AI** (use Claude, GPT-4, Gemini, local models—whatever works)
+
+## Features
+
 - **Supabase Sync** - Pull grants to local markdown, edit with AI, push back
+- **OAuth Device Flow** - Secure CLI authentication via browser (no API keys)
 - **Pre-submission validation** - Catch NSF PAPPG compliance issues before you submit
 - **Salary validation** - Check personnel costs against BLS OEWS market data
 - **Travel per diem** - Automatic GSA rate lookups by city and fiscal year
@@ -23,9 +47,8 @@ Other grant tools have their own AI built in. But you already have Claude Code. 
 ```bash
 pip install grantkit
 
-# Set up Supabase connection
-export GRANTKIT_SUPABASE_URL="https://your-project.supabase.co"
-export GRANTKIT_SUPABASE_KEY="your-key"
+# Authenticate via browser (OAuth device flow)
+grantkit auth login
 
 # Pull grants to local markdown
 grantkit sync pull
@@ -88,6 +111,9 @@ PolicyEngine democratizes policy analysis...
 
 | Command | Description |
 |---------|-------------|
+| `grantkit auth login` | Authenticate via browser (OAuth device flow) |
+| `grantkit auth whoami` | Show currently logged-in user |
+| `grantkit auth logout` | Clear stored credentials |
 | `grantkit sync pull` | Download grants from Supabase to local markdown |
 | `grantkit sync push` | Upload local changes to Supabase |
 | `grantkit sync watch` | Auto-sync on file changes |

@@ -2,23 +2,35 @@
 
 A competitive analysis of grant writing and proposal management tools as of November 2025.
 
+## The Paradigm Shift
+
+> "2023 was the year of the chatbot. 2024 was the year of RAG and finetuning. 2025 has been the year of MCP and tool use. **2026 will be the year of the computer environment and filesystem.**"
+>
+> — [Alex Albert, Anthropic](https://x.com/alexalbert__/status/1983209299624243529)
+
+Every other grant tool builds AI *into* their product. But the best AI agents (Claude Code, Cursor, Gemini CLI, Codex) already exist—and they work on **files**.
+
+GrantKit takes a different approach: sync your grants to local markdown files, let AI agents edit them like code, then push changes back to the cloud.
+
 ## Market Overview
 
 The grant writing software market consists primarily of:
-1. **AI writing assistants** - Help draft proposal content
+1. **AI writing assistants** - Help draft proposal content (with their own AI)
 2. **Grant management platforms** - Track deadlines, submissions, awards
 3. **Discovery tools** - Find relevant funding opportunities
 
-**Gap in the market**: No existing tool provides open-source, CLI-based pre-submission compliance validation for NSF and other federal grants.
+**Gap in the market**: No existing tool lets you edit grants with external AI agents like Claude Code.
 
 ## Competitive Matrix
 
 | Feature | GrantKit | Grantable | Granted AI | Instrumentl | NSF Research.gov |
 |---------|:--------:|:---------:|:----------:|:-----------:|:----------------:|
+| **External AI Agent Editing** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Local File Sync** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Open Source** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **CLI Interface** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Pre-submission Validation** | ✅ | ❌ | ❌ | ❌ | ✅* |
-| **AI Writing Assistance** | 🔜 | ✅ | ✅ | ✅ | ❌ |
+| **Built-in AI** | ❌ | ✅ | ✅ | ✅ | ❌ |
 | **Grant Discovery** | ❌ | ❌ | ❌ | ✅ | ❌ |
 | **Budget Calculation** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **PDF Generation** | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -26,6 +38,8 @@ The grant writing software market consists primarily of:
 | **Free Tier** | ✅ | Limited | 7-day trial | Limited | ✅ |
 
 *NSF Research.gov validation only works at submission time, not pre-submission.
+
+**Key insight**: GrantKit is the only tool where "External AI Agent Editing" is ✅. Other tools have built-in AI, but you can't use Claude Code, Cursor, or other agents to edit your grants.
 
 ## Detailed Comparisons
 
@@ -125,34 +139,47 @@ The grant writing software market consists primarily of:
 
 ### Target Users
 
-1. **Researchers using AI assistants** - Claude Code, Copilot, etc. for rapid iteration
-2. **Technical grant writers** - Comfortable with CLI, YAML configs
+1. **AI agent power users** - Already use Claude Code, Cursor, Gemini CLI, Codex for coding
+2. **Technical grant writers** - Comfortable with CLI, YAML configs, git workflows
 3. **Research offices** - Need reproducible, auditable proposal workflows
 4. **Open source advocates** - Want to inspect and modify their tools
 
 ### Unique Value Proposition
 
-**"Catch compliance issues before you click submit."**
+**"Edit grants with the same AI tools you use for code."**
 
 GrantKit is the only tool that lets you:
 
-1. **Validate locally** - Run `grantkit validate` anytime during writing
-2. **Automate with CI** - Add validation to your Git workflow
-3. **Integrate with AI** - Works naturally with Claude Code and similar tools
-4. **Customize rules** - Add your own institution's requirements
+1. **Use any AI agent** - Claude Code, Cursor, Gemini CLI, Codex—your choice
+2. **Work on local files** - Full context, git history, reviewable diffs
+3. **Validate locally** - Run `grantkit validate` anytime during writing
+4. **Automate with CI** - Add validation to your Git workflow
 5. **Calculate budgets** - GSA per diem lookups, indirect cost calculations
 
 ### Workflow Comparison
 
-**Traditional workflow** (with Grantable/Granted AI):
+**Traditional workflow** (web-based grant tools):
 ```
-Write in web app → Export → Submit to Research.gov → Fail compliance → Fix → Resubmit
+Write in web app → Use their built-in AI → Export → Submit to Research.gov → Fail compliance → Fix → Resubmit
 ```
 
 **GrantKit workflow**:
 ```
-Write in editor → grantkit validate → Fix issues → grantkit pdf → Submit confident
+grantkit sync pull → Edit with Claude Code/Cursor → grantkit validate → grantkit sync push → Submit confident
 ```
+
+### The AI Agent Advantage
+
+When your grants are local markdown files:
+
+| Capability | Web-based Grant Tools | GrantKit + AI Agents |
+|------------|----------------------|---------------------|
+| **Context window** | Limited to visible page | Entire grant directory |
+| **Edit review** | "Track changes" UI | Git diffs, PRs, blame |
+| **History** | Limited undo | Full git history |
+| **Automation** | None | CI/CD, scripts, hooks |
+| **AI choice** | Their AI only | Any AI agent |
+| **Offline work** | ❌ | ✅ |
 
 ## NSF Compliance Checking Details
 
@@ -188,10 +215,11 @@ NSF's Research.gov performs [automated compliance checks](https://www.nsf.gov/fu
 | If you need... | Use... |
 |----------------|--------|
 | Beautiful collaborative UI | Grantable |
-| AI-generated first drafts | Granted AI |
+| AI-generated first drafts (their AI) | Granted AI |
 | Grant discovery + management | Instrumentl |
+| **Edit with Claude Code/Cursor/Codex** | **GrantKit** |
+| **Local files + git workflow** | **GrantKit** |
 | **Pre-submission compliance checking** | **GrantKit** |
-| **CLI/programmatic workflow** | **GrantKit** |
 | **Open source + customizable** | **GrantKit** |
 
 ---
