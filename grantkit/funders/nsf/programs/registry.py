@@ -443,6 +443,149 @@ Requirements:
 
         logger.info(f"Exported {program_id} template to {output_dir}")
 
+    def generate_grant_yaml(
+        self, program_id: str, project_title: str, organization: str
+    ) -> dict:
+        """Generate a complete grant.yaml configuration for a program."""
+        config = self.get_program(program_id)
+        if not config:
+            raise ValueError(f"Program not found: {program_id}")
+
+        return {
+            "grant": {
+                "title": project_title,
+                "program": config.name,
+                "program_id": program_id,
+                "organization": organization,
+                "status": "draft",
+                "created_at": datetime.now().isoformat(),
+            },
+            "budget": {
+                "cap": config.budget_cap,
+                "period_years": config.project_period_years,
+                "indirect_rate_max": config.indirect_rate_max,
+            },
+            "formatting": {
+                "page_limit": config.page_limit_total,
+                "font_size_min": config.font_size_min,
+                "margins_min": config.margins_min,
+            },
+            "sections": [
+                {
+                    "id": section.id,
+                    "title": section.title,
+                    "required": section.required,
+                    "page_limit": section.page_limit,
+                    "word_limit": section.word_limit,
+                    "file": f"sections/{section.id}.md",
+                }
+                for section in config.sections
+            ],
+            "attachments": config.attachments,
+            "validation_rules": config.validation_rules,
+            "special_requirements": config.special_requirements,
+            "solicitation_url": config.solicitation_url,
+        }
+
+    def generate_data_management_plan(
+        self, program_id: str, output_path: Path
+    ) -> None:
+        """Generate a template Data Management Plan for a program."""
+        config = self.get_program(program_id)
+        program_name = config.name if config else "NSF Program"
+
+        dmp_content = f"""# Data Management Plan
+
+## 1. Types of Data
+
+This project will generate the following types of data:
+
+- **Research Data**: [Describe the types of data that will be collected or generated]
+- **Software/Code**: [Describe any software or code that will be developed]
+- **Documentation**: [Describe documentation, protocols, or methodologies]
+
+## 2. Data and Metadata Standards
+
+We will adhere to the following standards:
+
+- **File Formats**: Data will be stored in open, non-proprietary formats (CSV, JSON, etc.)
+- **Metadata**: We will use [relevant discipline standards] for metadata
+- **Naming Conventions**: Files will follow a consistent naming convention
+
+## 3. Policies for Access and Sharing
+
+- **Open Access**: All data will be made openly available within 12 months of collection
+- **Repository**: Data will be deposited in [Zenodo/Figshare/discipline-specific repository]
+- **Licensing**: Data will be released under CC-BY 4.0 license
+
+## 4. Policies for Re-use, Redistribution
+
+- Users may freely use, share, and build upon the data with proper attribution
+- Commercial use is permitted under the CC-BY 4.0 license
+- No restrictions on redistribution
+
+## 5. Plans for Archiving and Preservation
+
+- **Primary Archive**: [Repository name] with DOI assignment
+- **Backup**: Cloud backup with version control
+- **Retention**: Data will be preserved for at least 10 years
+
+---
+*This Data Management Plan follows {program_name} requirements and NSF PAPPG guidelines.*
+"""
+        output_path.write_text(dmp_content, encoding="utf-8")
+        logger.info(f"Generated Data Management Plan at {output_path}")
+
+    def generate_bio_sketch_template(self, output_path: Path) -> None:
+        """Generate an NSF biographical sketch template."""
+        biosketch_content = """# Biographical Sketch
+
+## (a) Professional Preparation
+
+| Institution | Location | Degree | Year |
+|-------------|----------|--------|------|
+| [University Name] | [City, State] | [Degree] | [Year] |
+
+## (b) Appointments
+
+| Position | Institution | Dates |
+|----------|-------------|-------|
+| [Current Position] | [Institution] | [Start] - Present |
+
+## (c) Products
+
+### (i) Five Products Most Closely Related to the Proposed Project
+
+1. [Author(s). "Title." Journal, Volume(Issue), Pages, Year. DOI]
+2.
+3.
+4.
+5.
+
+### (ii) Five Other Significant Products
+
+1.
+2.
+3.
+4.
+5.
+
+## (d) Synergistic Activities
+
+1. [Activity description - e.g., mentoring, outreach, professional service]
+2.
+3.
+4.
+5.
+
+---
+*This biographical sketch follows NSF PAPPG 24-1 format requirements.*
+*Page limit: 3 pages*
+*Use SciENcv format: https://www.ncbi.nlm.nih.gov/sciencv/*
+"""
+        output_path.write_text(biosketch_content, encoding="utf-8")
+        logger.info(f"Generated biographical sketch template at {output_path}")
+
     def validate_program_compliance(
         self, program_id: str, content: str
     ) -> List[str]:
