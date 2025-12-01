@@ -1,5 +1,10 @@
 """Budget management functionality for NSF grants."""
 
+from .calculator import (
+    BudgetCalculator,
+    calculate_budget_from_yaml,
+    sync_budget_to_grant,
+)
 from .manager import (
     BudgetItem,
     BudgetManager,
@@ -18,6 +23,10 @@ from .salary_validator import (
 )
 
 __all__ = [
+    # Calculator classes
+    "BudgetCalculator",
+    "calculate_budget_from_yaml",
+    "sync_budget_to_grant",
     # Manager classes
     "BudgetManager",
     "BudgetItem",
