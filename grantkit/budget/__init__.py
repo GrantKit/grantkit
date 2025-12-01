@@ -2,7 +2,9 @@
 
 from .calculator import (
     BudgetCalculator,
+    BudgetCapError,
     calculate_budget_from_yaml,
+    check_budget_caps,
     sync_budget_to_grant,
 )
 from .manager import (
@@ -25,7 +27,9 @@ from .salary_validator import (
 __all__ = [
     # Calculator classes
     "BudgetCalculator",
+    "BudgetCapError",
     "calculate_budget_from_yaml",
+    "check_budget_caps",
     "sync_budget_to_grant",
     # Manager classes
     "BudgetManager",

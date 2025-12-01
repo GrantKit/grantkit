@@ -10,6 +10,17 @@ from typing import Any, Dict, List
 import yaml
 
 
+class BudgetCapError(Exception):
+    """Raised when budget exceeds defined caps."""
+
+    def __init__(self, errors: List[str]):
+        self.errors = errors
+        message = "Budget cap violations:\n" + "\n".join(
+            f"  - {e}" for e in errors
+        )
+        super().__init__(message)
+
+
 class BudgetCalculator:
     """Calculate budget totals from a budget.yaml file."""
 
@@ -70,17 +81,34 @@ class BudgetCalculator:
     def calculate_fringe_benefits(self) -> Dict[str, int]:
         """Calculate fringe benefits totals per year.
 
+        If year_N is not specified but rate is, calculates fringe as rate * salaries.
+
         Returns:
             Dict with year_1, year_2, ..., year_N, total, and rate keys
         """
         fringe = self.data.get("fringe_benefits", {})
+        rate = fringe.get("rate", 0)
 
-        totals: Dict[str, Any] = {"rate": fringe.get("rate", 0)}
+        totals: Dict[str, Any] = {"rate": rate}
         grand_total = 0
+
+        # Get salary totals for automatic calculation
+        senior = self.calculate_senior_personnel()
+        other = self.calculate_other_personnel()
 
         for year in range(1, self.years + 1):
             year_key = f"year_{year}"
-            year_total = fringe.get(year_key, 0)
+
+            if year_key in fringe:
+                # Use explicit value if provided
+                year_total = fringe[year_key]
+            elif rate > 0:
+                # Calculate from rate * salaries
+                total_salary = senior[year_key] + other[year_key]
+                year_total = int(total_salary * rate)
+            else:
+                year_total = 0
+
             totals[year_key] = int(year_total)
             grand_total += year_total
 
@@ -338,6 +366,62 @@ class BudgetCalculator:
 
         return warnings
 
+    def calculate_yearly_totals(self) -> Dict[str, int]:
+        """Calculate total budget (direct + indirect) for each year.
+
+        Returns:
+            Dict with year_1, year_2, ..., year_N keys and total amounts
+        """
+        direct = self.calculate_total_direct_costs()
+        indirect = self.calculate_indirect_costs()
+
+        totals: Dict[str, int] = {}
+        for year in range(1, self.years + 1):
+            year_key = f"year_{year}"
+            totals[year_key] = direct[year_key] + indirect[year_key]
+
+        return totals
+
+    def validate_against_caps(self, grant_path: Path) -> List[str]:
+        """Validate budget against caps defined in grant.yaml.
+
+        Args:
+            grant_path: Path to grant.yaml containing budget_cap and annual_budget_cap
+
+        Returns:
+            List of error messages for cap violations (empty if valid)
+        """
+        with open(grant_path, "r", encoding="utf-8") as f:
+            grant_data = yaml.safe_load(f) or {}
+
+        errors: List[str] = []
+
+        budget_cap = grant_data.get("budget_cap")
+        annual_cap = grant_data.get("annual_budget_cap")
+
+        # Check total budget cap
+        if budget_cap is not None:
+            grand_total = self.calculate_grand_total()
+            if grand_total > budget_cap:
+                errors.append(
+                    f"Total budget ${grand_total:,} exceeds total cap ${budget_cap:,} "
+                    f"(over by ${grand_total - budget_cap:,})"
+                )
+
+        # Check annual budget caps
+        if annual_cap is not None:
+            yearly = self.calculate_yearly_totals()
+            for year in range(1, self.years + 1):
+                year_key = f"year_{year}"
+                year_total = yearly[year_key]
+                if year_total > annual_cap:
+                    errors.append(
+                        f"Year {year} budget ${year_total:,} exceeds annual cap "
+                        f"${annual_cap:,} (over by ${year_total - annual_cap:,})"
+                    )
+
+        return errors
+
 
 def calculate_budget_from_yaml(budget_path: Path) -> Dict[str, Any]:
     """Calculate budget summary from a budget.yaml file.
@@ -355,8 +439,10 @@ def calculate_budget_from_yaml(budget_path: Path) -> Dict[str, Any]:
 def sync_budget_to_grant(budget_path: Path, grant_path: Path) -> None:
     """Sync calculated budget total to grant.yaml.
 
-    Updates the amount_requested field in grant.yaml to match
-    the calculated total from budget.yaml.
+    Updates all budget-related fields in grant.yaml to match
+    the calculated total from budget.yaml, including:
+    - amount_requested (top level)
+    - research_gov.total_requested (if present)
 
     Args:
         budget_path: Path to budget.yaml
@@ -370,5 +456,28 @@ def sync_budget_to_grant(budget_path: Path, grant_path: Path) -> None:
 
     grant_data["amount_requested"] = total
 
+    # Also update nested research_gov.total_requested if present
+    if "research_gov" in grant_data and isinstance(
+        grant_data["research_gov"], dict
+    ):
+        grant_data["research_gov"]["total_requested"] = total
+
     with open(grant_path, "w", encoding="utf-8") as f:
         yaml.dump(grant_data, f, default_flow_style=False, sort_keys=False)
+
+
+def check_budget_caps(budget_path: Path, grant_path: Path) -> None:
+    """Check budget against caps and raise if violated.
+
+    Args:
+        budget_path: Path to budget.yaml
+        grant_path: Path to grant.yaml containing budget_cap and annual_budget_cap
+
+    Raises:
+        BudgetCapError: If budget exceeds any defined caps
+    """
+    calc = BudgetCalculator(budget_path)
+    errors = calc.validate_against_caps(grant_path)
+
+    if errors:
+        raise BudgetCapError(errors)

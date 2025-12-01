@@ -389,3 +389,373 @@ class TestBudgetValidation:
 
         # Should flag the inconsistency
         assert any("indirect" in w.lower() for w in warnings)
+
+
+class TestBudgetCapValidation:
+    """Tests for budget cap enforcement."""
+
+    def test_validate_against_caps_passes_when_under(self, tmp_path):
+        """Should pass validation when budget is under all caps."""
+        budget_yaml = {
+            "years_in_budget": 2,
+            "personnel": {
+                "senior_key": [
+                    {"name": "PI", "year_1": 50000, "year_2": 50000}
+                ],
+                "other": [],
+            },
+            "fringe_benefits": {"rate": 0.0, "year_1": 0, "year_2": 0},
+            "equipment": [],
+            "travel": {"domestic": [], "foreign": []},
+            "participant_support": [],
+            "other_direct_costs": [],
+            "indirect_costs": {"rate": 0.0, "base": "mtdc"},
+        }
+        budget_path = tmp_path / "budget.yaml"
+        with open(budget_path, "w") as f:
+            yaml.dump(budget_yaml, f)
+
+        grant_yaml = {
+            "name": "Test Grant",
+            "budget_cap": 200000,
+            "annual_budget_cap": 100000,
+        }
+        grant_path = tmp_path / "grant.yaml"
+        with open(grant_path, "w") as f:
+            yaml.dump(grant_yaml, f)
+
+        calc = BudgetCalculator(budget_path)
+        errors = calc.validate_against_caps(grant_path)
+
+        assert len(errors) == 0
+
+    def test_validate_against_caps_fails_when_total_exceeds(self, tmp_path):
+        """Should raise error when total budget exceeds cap."""
+        budget_yaml = {
+            "years_in_budget": 1,
+            "personnel": {
+                "senior_key": [{"name": "PI", "year_1": 150000}],
+                "other": [],
+            },
+            "fringe_benefits": {"rate": 0.0, "year_1": 0},
+            "equipment": [],
+            "travel": {"domestic": [], "foreign": []},
+            "participant_support": [],
+            "other_direct_costs": [],
+            "indirect_costs": {"rate": 0.0, "base": "mtdc"},
+        }
+        budget_path = tmp_path / "budget.yaml"
+        with open(budget_path, "w") as f:
+            yaml.dump(budget_yaml, f)
+
+        grant_yaml = {
+            "name": "Test Grant",
+            "budget_cap": 100000,  # Budget is 150k, cap is 100k
+        }
+        grant_path = tmp_path / "grant.yaml"
+        with open(grant_path, "w") as f:
+            yaml.dump(grant_yaml, f)
+
+        calc = BudgetCalculator(budget_path)
+        errors = calc.validate_against_caps(grant_path)
+
+        assert len(errors) > 0
+        assert any("exceeds total cap" in e.lower() for e in errors)
+
+    def test_validate_against_caps_fails_when_annual_exceeds(self, tmp_path):
+        """Should raise error when any year exceeds annual cap."""
+        budget_yaml = {
+            "years_in_budget": 2,
+            "personnel": {
+                "senior_key": [
+                    {"name": "PI", "year_1": 250000, "year_2": 50000}
+                ],  # Year 1 over
+                "other": [],
+            },
+            "fringe_benefits": {"rate": 0.0, "year_1": 0, "year_2": 0},
+            "equipment": [],
+            "travel": {"domestic": [], "foreign": []},
+            "participant_support": [],
+            "other_direct_costs": [],
+            "indirect_costs": {"rate": 0.0, "base": "mtdc"},
+        }
+        budget_path = tmp_path / "budget.yaml"
+        with open(budget_path, "w") as f:
+            yaml.dump(budget_yaml, f)
+
+        grant_yaml = {
+            "name": "Test Grant",
+            "budget_cap": 600000,
+            "annual_budget_cap": 200000,  # Year 1 is 250k, cap is 200k
+        }
+        grant_path = tmp_path / "grant.yaml"
+        with open(grant_path, "w") as f:
+            yaml.dump(grant_yaml, f)
+
+        calc = BudgetCalculator(budget_path)
+        errors = calc.validate_against_caps(grant_path)
+
+        assert len(errors) > 0
+        assert any(
+            "year 1" in e.lower() and "exceeds annual cap" in e.lower()
+            for e in errors
+        )
+
+    def test_validate_against_caps_reports_all_violations(self, tmp_path):
+        """Should report both total and annual cap violations."""
+        budget_yaml = {
+            "years_in_budget": 3,
+            "personnel": {
+                "senior_key": [
+                    {
+                        "name": "PI",
+                        "year_1": 250000,
+                        "year_2": 250000,
+                        "year_3": 250000,
+                    }
+                ],
+                "other": [],
+            },
+            "fringe_benefits": {
+                "rate": 0.0,
+                "year_1": 0,
+                "year_2": 0,
+                "year_3": 0,
+            },
+            "equipment": [],
+            "travel": {"domestic": [], "foreign": []},
+            "participant_support": [],
+            "other_direct_costs": [],
+            "indirect_costs": {"rate": 0.0, "base": "mtdc"},
+        }
+        budget_path = tmp_path / "budget.yaml"
+        with open(budget_path, "w") as f:
+            yaml.dump(budget_yaml, f)
+
+        grant_yaml = {
+            "name": "Test Grant",
+            "budget_cap": 600000,  # Total is 750k
+            "annual_budget_cap": 200000,  # Each year is 250k
+        }
+        grant_path = tmp_path / "grant.yaml"
+        with open(grant_path, "w") as f:
+            yaml.dump(grant_yaml, f)
+
+        calc = BudgetCalculator(budget_path)
+        errors = calc.validate_against_caps(grant_path)
+
+        # Should have total cap error + 3 annual cap errors
+        assert len(errors) >= 4
+        assert any("exceeds total cap" in e.lower() for e in errors)
+        assert any("year 1" in e.lower() for e in errors)
+        assert any("year 2" in e.lower() for e in errors)
+        assert any("year 3" in e.lower() for e in errors)
+
+    def test_validate_against_caps_skips_if_no_caps_defined(self, tmp_path):
+        """Should pass if grant.yaml has no caps defined."""
+        budget_yaml = {
+            "years_in_budget": 1,
+            "personnel": {
+                "senior_key": [{"name": "PI", "year_1": 1000000}],
+                "other": [],
+            },
+            "fringe_benefits": {"rate": 0.0, "year_1": 0},
+            "equipment": [],
+            "travel": {"domestic": [], "foreign": []},
+            "participant_support": [],
+            "other_direct_costs": [],
+            "indirect_costs": {"rate": 0.0, "base": "mtdc"},
+        }
+        budget_path = tmp_path / "budget.yaml"
+        with open(budget_path, "w") as f:
+            yaml.dump(budget_yaml, f)
+
+        grant_yaml = {
+            "name": "Test Grant",
+            # No budget_cap or annual_budget_cap
+        }
+        grant_path = tmp_path / "grant.yaml"
+        with open(grant_path, "w") as f:
+            yaml.dump(grant_yaml, f)
+
+        calc = BudgetCalculator(budget_path)
+        errors = calc.validate_against_caps(grant_path)
+
+        assert len(errors) == 0
+
+
+class TestBudgetCapError:
+    """Tests for BudgetCapError exception."""
+
+    def test_check_budget_caps_raises_on_violation(self, tmp_path):
+        """Should raise BudgetCapError when caps are violated."""
+        from grantkit.budget.calculator import (
+            BudgetCapError,
+            check_budget_caps,
+        )
+
+        budget_yaml = {
+            "years_in_budget": 1,
+            "personnel": {
+                "senior_key": [{"name": "PI", "year_1": 150000}],
+                "other": [],
+            },
+            "fringe_benefits": {"rate": 0.0, "year_1": 0},
+            "equipment": [],
+            "travel": {"domestic": [], "foreign": []},
+            "participant_support": [],
+            "other_direct_costs": [],
+            "indirect_costs": {"rate": 0.0, "base": "mtdc"},
+        }
+        budget_path = tmp_path / "budget.yaml"
+        with open(budget_path, "w") as f:
+            yaml.dump(budget_yaml, f)
+
+        grant_yaml = {
+            "name": "Test Grant",
+            "budget_cap": 100000,
+        }
+        grant_path = tmp_path / "grant.yaml"
+        with open(grant_path, "w") as f:
+            yaml.dump(grant_yaml, f)
+
+        with pytest.raises(BudgetCapError) as exc_info:
+            check_budget_caps(budget_path, grant_path)
+
+        assert "exceeds total cap" in str(exc_info.value).lower()
+
+    def test_check_budget_caps_passes_when_valid(self, tmp_path):
+        """Should not raise when budget is within caps."""
+        from grantkit.budget.calculator import check_budget_caps
+
+        budget_yaml = {
+            "years_in_budget": 1,
+            "personnel": {
+                "senior_key": [{"name": "PI", "year_1": 50000}],
+                "other": [],
+            },
+            "fringe_benefits": {"rate": 0.0, "year_1": 0},
+            "equipment": [],
+            "travel": {"domestic": [], "foreign": []},
+            "participant_support": [],
+            "other_direct_costs": [],
+            "indirect_costs": {"rate": 0.0, "base": "mtdc"},
+        }
+        budget_path = tmp_path / "budget.yaml"
+        with open(budget_path, "w") as f:
+            yaml.dump(budget_yaml, f)
+
+        grant_yaml = {
+            "name": "Test Grant",
+            "budget_cap": 100000,
+            "annual_budget_cap": 100000,
+        }
+        grant_path = tmp_path / "grant.yaml"
+        with open(grant_path, "w") as f:
+            yaml.dump(grant_yaml, f)
+
+        # Should not raise
+        check_budget_caps(budget_path, grant_path)
+
+
+class TestAutomaticFringeCalculation:
+    """Tests for automatic fringe benefit calculation from rate."""
+
+    def test_calculates_fringe_from_rate_when_no_yearly_values(self, tmp_path):
+        """Should calculate fringe from rate * salaries when year_N not specified."""
+        budget_yaml = {
+            "years_in_budget": 2,
+            "personnel": {
+                "senior_key": [
+                    {"name": "PI", "year_1": 100000, "year_2": 100000}
+                ],
+                "other": [{"title": "RSE", "year_1": 50000, "year_2": 60000}],
+            },
+            "fringe_benefits": {
+                "rate": 0.30,
+                # No year_1, year_2 specified - should be calculated
+            },
+            "equipment": [],
+            "travel": {"domestic": [], "foreign": []},
+            "participant_support": [],
+            "other_direct_costs": [],
+            "indirect_costs": {"rate": 0.0, "base": "mtdc"},
+        }
+        budget_path = tmp_path / "budget.yaml"
+        with open(budget_path, "w") as f:
+            yaml.dump(budget_yaml, f)
+
+        calc = BudgetCalculator(budget_path)
+        fringe = calc.calculate_fringe_benefits()
+
+        # Year 1: (100000 + 50000) * 0.30 = 45000
+        assert fringe["year_1"] == 45000
+        # Year 2: (100000 + 60000) * 0.30 = 48000
+        assert fringe["year_2"] == 48000
+        assert fringe["total"] == 93000
+
+    def test_uses_explicit_fringe_when_provided(self, tmp_path):
+        """Should use explicit year_N values when provided."""
+        budget_yaml = {
+            "years_in_budget": 1,
+            "personnel": {
+                "senior_key": [{"name": "PI", "year_1": 100000}],
+                "other": [],
+            },
+            "fringe_benefits": {
+                "rate": 0.30,
+                "year_1": 25000,  # Explicit override (not 30000)
+            },
+            "equipment": [],
+            "travel": {"domestic": [], "foreign": []},
+            "participant_support": [],
+            "other_direct_costs": [],
+            "indirect_costs": {"rate": 0.0, "base": "mtdc"},
+        }
+        budget_path = tmp_path / "budget.yaml"
+        with open(budget_path, "w") as f:
+            yaml.dump(budget_yaml, f)
+
+        calc = BudgetCalculator(budget_path)
+        fringe = calc.calculate_fringe_benefits()
+
+        # Should use explicit value, not calculated
+        assert fringe["year_1"] == 25000
+
+    def test_mixed_explicit_and_calculated_fringe(self, tmp_path):
+        """Should handle mix of explicit and calculated fringe per year."""
+        budget_yaml = {
+            "years_in_budget": 3,
+            "personnel": {
+                "senior_key": [
+                    {
+                        "name": "PI",
+                        "year_1": 100000,
+                        "year_2": 100000,
+                        "year_3": 100000,
+                    }
+                ],
+                "other": [],
+            },
+            "fringe_benefits": {
+                "rate": 0.30,
+                "year_1": 25000,  # Explicit
+                # year_2 not specified - calculate
+                "year_3": 35000,  # Explicit
+            },
+            "equipment": [],
+            "travel": {"domestic": [], "foreign": []},
+            "participant_support": [],
+            "other_direct_costs": [],
+            "indirect_costs": {"rate": 0.0, "base": "mtdc"},
+        }
+        budget_path = tmp_path / "budget.yaml"
+        with open(budget_path, "w") as f:
+            yaml.dump(budget_yaml, f)
+
+        calc = BudgetCalculator(budget_path)
+        fringe = calc.calculate_fringe_benefits()
+
+        assert fringe["year_1"] == 25000  # Explicit
+        assert fringe["year_2"] == 30000  # Calculated: 100000 * 0.30
+        assert fringe["year_3"] == 35000  # Explicit
