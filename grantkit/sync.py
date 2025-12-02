@@ -12,6 +12,7 @@ import yaml
 from supabase import Client, create_client
 
 from .auth import get_authenticated_client, is_logged_in
+from .budget.calculator import BudgetCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -230,6 +231,53 @@ class GrantKitSync:
 
         return db_record
 
+    def _sync_budget_to_grant(
+        self, grant_dir: Path
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Sync budget.yaml to grant.yaml, updating amount_requested.
+
+        Args:
+            grant_dir: Path to grant directory
+
+        Returns:
+            Budget summary dict if budget.yaml exists, None otherwise
+        """
+        budget_yaml = grant_dir / "budget.yaml"
+        grant_yaml = grant_dir / "grant.yaml"
+
+        if not budget_yaml.exists():
+            return None
+
+        # Calculate budget totals
+        calculator = BudgetCalculator(budget_yaml)
+        summary = calculator.get_summary()
+        total = summary["grand_total"]
+
+        # Read current grant.yaml
+        with open(grant_yaml) as f:
+            grant_meta = yaml.safe_load(f) or {}
+
+        # Update amount_requested
+        grant_meta["amount_requested"] = total
+
+        # Also update research_gov.total_requested if present
+        if "research_gov" in grant_meta:
+            grant_meta["research_gov"]["total_requested"] = total
+
+        # Write back to grant.yaml
+        with open(grant_yaml, "w") as f:
+            yaml.dump(grant_meta, f, default_flow_style=False, sort_keys=False)
+
+        # Read full budget.yaml for JSONB storage
+        with open(budget_yaml) as f:
+            budget_data = yaml.safe_load(f)
+
+        # Add calculated summary to budget data
+        budget_data["summary"] = summary
+
+        return budget_data
+
     def push(self, grant_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Push local files to Supabase.
@@ -260,12 +308,19 @@ class GrantKitSync:
                 logger.warning(f"No grant.yaml in {grant_dir}, skipping")
                 continue
 
-            # Read grant metadata
+            # Sync budget.yaml to grant.yaml if it exists
+            budget_data = self._sync_budget_to_grant(grant_dir)
+
+            # Read grant metadata (now with updated amount_requested)
             with open(grant_yaml) as f:
                 grant_meta = yaml.safe_load(f)
 
             # Normalize to database schema (handles nested and flat formats)
             db_record = self._normalize_grant_yaml(grant_meta, grant_dir.name)
+
+            # Add budget JSONB if we have budget data
+            if budget_data:
+                db_record["budget"] = budget_data
 
             # Upsert grant
             try:

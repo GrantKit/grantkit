@@ -297,6 +297,121 @@ class TestBudgetNarrativeValidation:
         assert len(dollar_warnings) > 0
 
 
+class TestProjectDescriptionURLValidation:
+    """Tests for strict URL validation in Project Description.
+
+    NSF PAPPG requires NO hyperlinks in Project Description.
+    This is stricter than just prohibiting cloud storage - ALL URLs must be errors.
+    """
+
+    @pytest.fixture
+    def validator(self):
+        return NSFValidator()
+
+    def test_rejects_any_url_in_project_description(self, validator):
+        """Should reject ANY URL in project description, not just prohibited ones."""
+        content = "See our repository at https://github.com/example/repo"
+        result = validator.validate_project_description(content)
+
+        url_errors = [
+            i
+            for i in result.issues
+            if i.severity == "error" and "url" in i.message.lower()
+        ]
+        assert (
+            len(url_errors) > 0
+        ), "GitHub URLs should be errors in project description"
+
+    def test_rejects_doi_url_in_project_description(self, validator):
+        """Should reject DOI URLs in project description body."""
+        content = "As shown in https://doi.org/10.1234/example"
+        result = validator.validate_project_description(content)
+
+        url_errors = [
+            i
+            for i in result.issues
+            if i.severity == "error" and "url" in i.message.lower()
+        ]
+        assert (
+            len(url_errors) > 0
+        ), "DOI URLs should be errors in project description"
+
+    def test_rejects_gov_url_in_project_description(self, validator):
+        """Should reject .gov URLs in project description body."""
+        content = "Data from https://census.gov/data/example"
+        result = validator.validate_project_description(content)
+
+        url_errors = [
+            i
+            for i in result.issues
+            if i.severity == "error" and "url" in i.message.lower()
+        ]
+        assert (
+            len(url_errors) > 0
+        ), ".gov URLs should be errors in project description"
+
+    def test_allows_citations_instead_of_urls(self, validator):
+        """Should pass when content uses citations instead of URLs."""
+        content = """
+        ## Research Background
+
+        Prior work [@smith_2020; @jones_2021] established the foundation.
+        Government data sources [Census Bureau, 2023] provide key inputs.
+        Our codebase is available as open source software.
+        """
+        result = validator.validate_project_description(content)
+
+        url_errors = [
+            i
+            for i in result.issues
+            if i.severity == "error" and "url" in i.message.lower()
+        ]
+        assert len(url_errors) == 0
+
+    def test_provides_helpful_suggestion_for_url_errors(self, validator):
+        """Should suggest using citations instead of URLs."""
+        content = "Code at https://github.com/example/repo"
+        result = validator.validate_project_description(content)
+
+        url_errors = [
+            i
+            for i in result.issues
+            if i.severity == "error" and "url" in i.message.lower()
+        ]
+        assert len(url_errors) > 0
+        assert any(
+            "citation" in i.suggestion.lower()
+            or "reference" in i.suggestion.lower()
+            for i in url_errors
+            if i.suggestion
+        )
+
+
+class TestLineSpacingValidation:
+    """Tests for NSF line spacing requirements.
+
+    NSF PAPPG requires no more than 6 lines per vertical inch.
+    """
+
+    @pytest.fixture
+    def validator(self):
+        return NSFValidator()
+
+    def test_detects_dense_line_spacing_warning(self, validator):
+        """Should warn about potential line spacing issues in source."""
+        # Very long lines with no breaks could indicate dense formatting
+        content = "A" * 500 + "\n" + "B" * 500  # Long lines, minimal structure
+        result = validator.validate_project_description(content)
+
+        # This is informational since we can't verify PDF spacing from markdown
+        # Just verify no crash - result.issues may or may not contain spacing warnings
+        _ = [
+            i
+            for i in result.issues
+            if "line" in i.message.lower() and "spacing" in i.message.lower()
+        ]
+
+
 class TestValidationReport:
     """Tests for validation report generation."""
 

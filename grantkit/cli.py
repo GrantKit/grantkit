@@ -20,7 +20,6 @@ from .auth import (
     is_logged_in,
 )
 from .budget.calculator import BudgetCalculator
-from .budget.manager import BudgetManager
 from .core.assembler import GrantAssembler
 from .core.validator import NSFValidator
 from .funders.nsf.programs.registry import ProgramRegistry
@@ -1193,7 +1192,9 @@ def budget(
                         "C_fringe_benefits": summary["fringe_benefits"],
                         "D_equipment": summary["equipment"],
                         "E_travel": summary["travel"],
-                        "F_participant_support": summary["participant_support"],
+                        "F_participant_support": summary[
+                            "participant_support"
+                        ],
                         "G_other_direct_costs": summary["other_direct_costs"],
                         "I_indirect_costs": summary["indirect_costs"],
                     },
@@ -1214,7 +1215,9 @@ Indirect Costs: ${indirect_total:,.0f}"""
 
         if headroom < 0:
             panel_style = "red"
-            panel_content += f"\n\n[red]⚠️  Over budget by ${abs(headroom):,.0f}[/red]"
+            panel_content += (
+                f"\n\n[red]⚠️  Over budget by ${abs(headroom):,.0f}[/red]"
+            )
         elif headroom < budget_cap * 0.1:
             panel_style = "yellow"
             panel_content += "\n\n[yellow]⚠️  Low headroom remaining[/yellow]"
@@ -1231,13 +1234,25 @@ Indirect Costs: ${indirect_total:,.0f}"""
             table.add_column("Percentage", justify="right")
 
             categories = [
-                ("A", "Senior Personnel", summary["senior_personnel"]["total"]),
+                (
+                    "A",
+                    "Senior Personnel",
+                    summary["senior_personnel"]["total"],
+                ),
                 ("B", "Other Personnel", summary["other_personnel"]["total"]),
                 ("C", "Fringe Benefits", summary["fringe_benefits"]["total"]),
                 ("D", "Equipment", summary["equipment"]["total"]),
                 ("E", "Travel", summary["travel"]["total"]),
-                ("F", "Participant Support", summary["participant_support"]["total"]),
-                ("G", "Other Direct Costs", summary["other_direct_costs"]["total"]),
+                (
+                    "F",
+                    "Participant Support",
+                    summary["participant_support"]["total"],
+                ),
+                (
+                    "G",
+                    "Other Direct Costs",
+                    summary["other_direct_costs"]["total"],
+                ),
             ]
 
             for cat_code, cat_name, amount in categories:
@@ -1334,12 +1349,14 @@ def _generate_budget_narrative(
         lines.append("")
 
     # Totals
-    lines.extend([
-        "---",
-        f"**Total Direct Costs:** ${total_direct:,}",
-        f"**Total Indirect Costs:** ${indirect_total:,}",
-        f"**Grand Total:** ${grand_total:,}",
-    ])
+    lines.extend(
+        [
+            "---",
+            f"**Total Direct Costs:** ${total_direct:,}",
+            f"**Total Indirect Costs:** ${indirect_total:,}",
+            f"**Grand Total:** ${grand_total:,}",
+        ]
+    )
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
