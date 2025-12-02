@@ -11,7 +11,7 @@ import yaml
 
 from supabase import Client, create_client
 
-from .auth import get_authenticated_client, is_logged_in
+from .auth import get_authenticated_client, get_current_user_id, is_logged_in
 from .budget.calculator import BudgetCalculator
 
 logger = logging.getLogger(__name__)
@@ -199,6 +199,7 @@ class GrantKitSync:
         "advisors",
         "sustainability",
         "budget",
+        "user_id",
     }
 
     def _normalize_grant_yaml(
@@ -352,6 +353,11 @@ class GrantKitSync:
             # Add budget JSONB if we have budget data
             if budget_data:
                 db_record["budget"] = budget_data
+
+            # Set user_id if authenticated (required by RLS policy)
+            user_id = get_current_user_id()
+            if user_id:
+                db_record["user_id"] = user_id
 
             # Upsert grant
             try:

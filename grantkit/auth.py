@@ -245,6 +245,20 @@ def get_current_user() -> Optional[str]:
     return None
 
 
+def get_current_user_id() -> Optional[str]:
+    """Get the user ID of the currently logged in user from Supabase."""
+    client = get_authenticated_client()
+    if not client:
+        return None
+    try:
+        user = client.auth.get_user()
+        if user and user.user:
+            return user.user.id
+    except Exception as e:
+        logger.debug(f"Failed to get user ID: {e}")
+    return None
+
+
 def is_logged_in() -> bool:
     """Check if user is logged in with valid credentials."""
     creds = load_credentials()
