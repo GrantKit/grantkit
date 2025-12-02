@@ -301,7 +301,6 @@ class TestGetSyncClient:
             assert client.config.supabase_key == "file-key"
 
 
-
 class TestBudgetSync:
     """Tests for budget sync functionality - ensuring budget.yaml is source of truth."""
 
@@ -420,8 +419,12 @@ class TestBudgetSync:
             )
 
         # Mock select to return empty (grant doesn't exist) so insert is called
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
-        mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock()
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
+            []
+        )
+        mock_supabase.table.return_value.insert.return_value.execute.return_value = (
+            MagicMock()
+        )
 
         sync = GrantKitSync(sync_config)
         sync.push(grant_id="test-grant")
@@ -434,7 +437,9 @@ class TestBudgetSync:
         inserted_data = insert_call[0][0]
         assert inserted_data["amount_requested"] == 114400
 
-    def test_push_includes_budget_data_in_jsonb(self, mock_supabase, sync_config):
+    def test_push_includes_budget_data_in_jsonb(
+        self, mock_supabase, sync_config
+    ):
         """Push should include calculated budget summary in budget JSONB column."""
         grant_dir = sync_config.grants_dir / "test-grant"
         grant_dir.mkdir(parents=True)
@@ -473,8 +478,12 @@ class TestBudgetSync:
             )
 
         # Mock select to return empty (grant doesn't exist) so insert is called
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
-        mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock()
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
+            []
+        )
+        mock_supabase.table.return_value.insert.return_value.execute.return_value = (
+            MagicMock()
+        )
 
         sync = GrantKitSync(sync_config)
         sync.push(grant_id="test-grant")
@@ -514,8 +523,12 @@ class TestBudgetSync:
         # No budget.yaml file
 
         # Mock select to return empty (grant doesn't exist) so insert is called
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
-        mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock()
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
+            []
+        )
+        mock_supabase.table.return_value.insert.return_value.execute.return_value = (
+            MagicMock()
+        )
 
         sync = GrantKitSync(sync_config)
         sync.push(grant_id="test-grant")
@@ -649,8 +662,12 @@ class TestBudgetSync:
             )
 
         # Mock select to return empty (grant doesn't exist) so insert is called
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
-        mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock()
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
+            []
+        )
+        mock_supabase.table.return_value.insert.return_value.execute.return_value = (
+            MagicMock()
+        )
 
         sync = GrantKitSync(sync_config)
         sync.push(grant_id="test-grant")

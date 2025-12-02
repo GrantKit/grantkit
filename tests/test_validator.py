@@ -314,10 +314,13 @@ class TestProjectDescriptionURLValidation:
         result = validator.validate_project_description(content)
 
         url_errors = [
-            i for i in result.issues
+            i
+            for i in result.issues
             if i.severity == "error" and "url" in i.message.lower()
         ]
-        assert len(url_errors) > 0, "GitHub URLs should be errors in project description"
+        assert (
+            len(url_errors) > 0
+        ), "GitHub URLs should be errors in project description"
 
     def test_rejects_doi_url_in_project_description(self, validator):
         """Should reject DOI URLs in project description body."""
@@ -325,10 +328,13 @@ class TestProjectDescriptionURLValidation:
         result = validator.validate_project_description(content)
 
         url_errors = [
-            i for i in result.issues
+            i
+            for i in result.issues
             if i.severity == "error" and "url" in i.message.lower()
         ]
-        assert len(url_errors) > 0, "DOI URLs should be errors in project description"
+        assert (
+            len(url_errors) > 0
+        ), "DOI URLs should be errors in project description"
 
     def test_rejects_gov_url_in_project_description(self, validator):
         """Should reject .gov URLs in project description body."""
@@ -336,10 +342,13 @@ class TestProjectDescriptionURLValidation:
         result = validator.validate_project_description(content)
 
         url_errors = [
-            i for i in result.issues
+            i
+            for i in result.issues
             if i.severity == "error" and "url" in i.message.lower()
         ]
-        assert len(url_errors) > 0, ".gov URLs should be errors in project description"
+        assert (
+            len(url_errors) > 0
+        ), ".gov URLs should be errors in project description"
 
     def test_allows_citations_instead_of_urls(self, validator):
         """Should pass when content uses citations instead of URLs."""
@@ -353,7 +362,8 @@ class TestProjectDescriptionURLValidation:
         result = validator.validate_project_description(content)
 
         url_errors = [
-            i for i in result.issues
+            i
+            for i in result.issues
             if i.severity == "error" and "url" in i.message.lower()
         ]
         assert len(url_errors) == 0
@@ -364,12 +374,17 @@ class TestProjectDescriptionURLValidation:
         result = validator.validate_project_description(content)
 
         url_errors = [
-            i for i in result.issues
+            i
+            for i in result.issues
             if i.severity == "error" and "url" in i.message.lower()
         ]
         assert len(url_errors) > 0
-        assert any("citation" in i.suggestion.lower() or "reference" in i.suggestion.lower()
-                   for i in url_errors if i.suggestion)
+        assert any(
+            "citation" in i.suggestion.lower()
+            or "reference" in i.suggestion.lower()
+            for i in url_errors
+            if i.suggestion
+        )
 
 
 class TestLineSpacingValidation:
@@ -391,7 +406,8 @@ class TestLineSpacingValidation:
         # This is informational since we can't verify PDF spacing from markdown
         # Just verify no crash - result.issues may or may not contain spacing warnings
         _ = [
-            i for i in result.issues
+            i
+            for i in result.issues
             if "line" in i.message.lower() and "spacing" in i.message.lower()
         ]
 

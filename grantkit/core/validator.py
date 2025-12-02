@@ -152,7 +152,11 @@ class NSFValidator:
     REQUIRED_MARGINS = 1.0  # inches - PAPPG 24-1 II.C.2.d.i.(c)
     MAX_LINES_PER_INCH = 6.0  # PAPPG 24-1 II.C.2.d.i.(b)
 
-    def __init__(self, project_root: Optional[Any] = None, program_config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        project_root: Optional[Any] = None,
+        program_config: Optional[Dict[str, Any]] = None,
+    ):
         """Initialize validator with program-specific configuration.
 
         Args:
@@ -160,6 +164,7 @@ class NSFValidator:
             program_config: Program-specific configuration dict
         """
         from pathlib import Path
+
         self.project_root = Path(project_root) if project_root else None
         self.program_config = program_config or {}
         self.issues: List[ValidationIssue] = []
