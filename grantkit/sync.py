@@ -174,6 +174,33 @@ class GrantKitSync:
 
         return stats
 
+    # Known database columns for the grants table
+    KNOWN_DB_COLUMNS = {
+        "id",
+        "name",
+        "foundation",
+        "program",
+        "deadline",
+        "status",
+        "amount_requested",
+        "duration_years",
+        "solicitation_url",
+        "repo_url",
+        "fiscal_sponsor",
+        "pi_name",
+        "pi_email",
+        "co_pi_name",
+        "metadata",
+        "project",
+        "contact",
+        "nsf_config",
+        "scope",
+        "impact",
+        "advisors",
+        "sustainability",
+        "budget",
+    }
+
     def _normalize_grant_yaml(
         self, grant_meta: Dict[str, Any], grant_dir_name: str
     ) -> Dict[str, Any]:
@@ -221,8 +248,12 @@ class GrantKitSync:
                 "budget": grant_meta.get("budget"),
             }
         else:
-            # Flat format - use as-is but ensure id exists
-            db_record = grant_meta.copy()
+            # Flat format - filter to known DB columns only
+            db_record = {
+                k: v
+                for k, v in grant_meta.items()
+                if k in self.KNOWN_DB_COLUMNS
+            }
             if "id" not in db_record:
                 db_record["id"] = grant_dir_name
 
