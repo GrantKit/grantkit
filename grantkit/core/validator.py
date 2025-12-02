@@ -152,10 +152,55 @@ class NSFValidator:
     REQUIRED_MARGINS = 1.0  # inches - PAPPG 24-1 II.C.2.d.i.(c)
     MAX_LINES_PER_INCH = 6.0  # PAPPG 24-1 II.C.2.d.i.(b)
 
-    def __init__(self, program_config: Optional[Dict[str, Any]] = None):
-        """Initialize validator with program-specific configuration."""
+    def __init__(self, project_root: Optional[Any] = None, program_config: Optional[Dict[str, Any]] = None):
+        """Initialize validator with program-specific configuration.
+
+        Args:
+            project_root: Path to project root (for file-based validation)
+            program_config: Program-specific configuration dict
+        """
+        from pathlib import Path
+        self.project_root = Path(project_root) if project_root else None
         self.program_config = program_config or {}
         self.issues: List[ValidationIssue] = []
+
+    def validate(self) -> ValidationResult:
+        """Validate all proposal files in the project.
+
+        Returns:
+            ValidationResult combining all file validations
+        """
+        self.issues = []
+
+        if not self.project_root:
+            return ValidationResult(passed=True, issues=[])
+
+        responses_dir = self.project_root / "responses"
+        if not responses_dir.exists():
+            return ValidationResult(passed=True, issues=[])
+
+        # Validate project description if it exists
+        project_desc = responses_dir / "project_description.md"
+        if project_desc.exists():
+            content = project_desc.read_text(encoding="utf-8")
+            result = self.validate_project_description(content)
+            self.issues.extend(result.issues)
+
+        # Validate other files with general validation
+        for md_file in responses_dir.glob("*.md"):
+            if md_file.name == "project_description.md":
+                continue  # Already validated above
+            content = md_file.read_text(encoding="utf-8")
+            result = self.validate_proposal(content)
+            # Add file context to issues
+            for issue in result.issues:
+                issue.location = f"{md_file.name}: {issue.location or ''}"
+            self.issues.extend(result.issues)
+
+        return ValidationResult(
+            passed=not any(i.severity == "error" for i in self.issues),
+            issues=self.issues.copy(),
+        )
 
     def validate_proposal(
         self,
@@ -686,6 +731,62 @@ class NSFValidator:
                     suggestion="Review length - typical limit is 2-3 pages",
                 )
             )
+
+        return ValidationResult(
+            passed=not any(i.severity == "error" for i in self.issues),
+            issues=self.issues.copy(),
+        )
+
+    def validate_project_description(self, content: str) -> ValidationResult:
+        """Validate Project Description per NSF PAPPG rules.
+
+        NSF PAPPG requires NO hyperlinks/URLs in the Project Description.
+        This is stricter than general proposal validation - ALL URLs are errors,
+        not just prohibited cloud storage links.
+
+        Args:
+            content: The project description content to validate
+
+        Returns:
+            ValidationResult with all issues found
+        """
+        self.issues = []
+
+        lines = content.split("\n")
+
+        for line_num, line in enumerate(lines, 1):
+            # Check for email addresses (prohibited)
+            email_matches = re.findall(self.PROHIBITED_PATTERNS[0], line)
+            for email in email_matches:
+                self.issues.append(
+                    ValidationIssue(
+                        severity="error",
+                        category="compliance",
+                        message=f"Email address in Project Description: {email}",
+                        location=f"Line {line_num}",
+                        suggestion="Remove email addresses. Contact information belongs in Cover Sheet only.",
+                        rule="PAPPG II.D.2.d.(i): Email addresses prohibited in Project Description",
+                    )
+                )
+
+            # Check for ANY URLs - ALL are prohibited in Project Description
+            url_matches = re.findall(r'https?://[^\s<>"]+', line)
+            for url in url_matches:
+                self.issues.append(
+                    ValidationIssue(
+                        severity="error",
+                        category="compliance",
+                        message=f"URL in Project Description: {url}",
+                        location=f"Line {line_num}",
+                        suggestion="Use a citation or reference instead of URLs. Move URLs to References Cited section.",
+                        rule="PAPPG II.D.2.d.(i): Hyperlinks are not allowed in the Project Description",
+                    )
+                )
+
+        # Also run standard content checks
+        self._check_content_requirements(content)
+        self._check_section_structure(content)
+        self._check_non_ascii_characters(content)
 
         return ValidationResult(
             passed=not any(i.severity == "error" for i in self.issues),
