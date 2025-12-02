@@ -389,11 +389,11 @@ class TestLineSpacingValidation:
         result = validator.validate_project_description(content)
 
         # This is informational since we can't verify PDF spacing from markdown
-        spacing_issues = [
+        # Just verify no crash - result.issues may or may not contain spacing warnings
+        _ = [
             i for i in result.issues
             if "line" in i.message.lower() and "spacing" in i.message.lower()
         ]
-        # May or may not have issues - just verify no crash
 
 
 class TestValidationReport:

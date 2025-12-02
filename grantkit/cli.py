@@ -20,7 +20,6 @@ from .auth import (
     is_logged_in,
 )
 from .budget.calculator import BudgetCalculator
-from .budget.manager import BudgetManager
 from .core.assembler import GrantAssembler
 from .core.validator import NSFValidator
 from .funders.nsf.programs.registry import ProgramRegistry
