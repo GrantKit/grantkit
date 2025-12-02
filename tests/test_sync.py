@@ -281,13 +281,14 @@ class TestGetSyncClient:
 
     def test_uses_env_when_no_config_file(self, tmp_path):
         """Should use environment variables when no config file exists."""
-        with patch.dict(
-            os.environ, {"GRANTKIT_SUPABASE_KEY": "env-key"}, clear=True
-        ):
-            with patch("grantkit.sync.create_client") as mock_create:
-                mock_create.return_value = MagicMock()
-                client = get_sync_client(tmp_path)
-                assert client.config.supabase_key == "env-key"
+        with patch("grantkit.sync.is_logged_in", return_value=False):
+            with patch.dict(
+                os.environ, {"GRANTKIT_SUPABASE_KEY": "env-key"}, clear=True
+            ):
+                with patch("grantkit.sync.create_client") as mock_create:
+                    mock_create.return_value = MagicMock()
+                    client = get_sync_client(tmp_path)
+                    assert client.config.supabase_key == "env-key"
 
     def test_uses_config_file_when_exists(self, tmp_path):
         """Should use config file when it exists."""
@@ -295,10 +296,11 @@ class TestGetSyncClient:
         with open(config_path, "w") as f:
             yaml.dump({"sync": {"supabase_key": "file-key"}}, f)
 
-        with patch("grantkit.sync.create_client") as mock_create:
-            mock_create.return_value = MagicMock()
-            client = get_sync_client(tmp_path)
-            assert client.config.supabase_key == "file-key"
+        with patch("grantkit.sync.is_logged_in", return_value=False):
+            with patch("grantkit.sync.create_client") as mock_create:
+                mock_create.return_value = MagicMock()
+                client = get_sync_client(tmp_path)
+                assert client.config.supabase_key == "file-key"
 
 
 class TestBudgetSync:
@@ -418,24 +420,20 @@ class TestBudgetSync:
                 f,
             )
 
-        # Mock select to return empty (grant doesn't exist) so insert is called
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
-            []
-        )
-        mock_supabase.table.return_value.insert.return_value.execute.return_value = (
+        mock_supabase.table.return_value.upsert.return_value.execute.return_value = (
             MagicMock()
         )
 
         sync = GrantKitSync(sync_config)
         sync.push(grant_id="test-grant")
 
-        # Verify the inserted data has calculated amount
+        # Verify the upserted data has calculated amount
         # Budget: $80k salary + $24k fringe = $104k direct
         # Indirect: 10% of $104k = $10,400
         # Total: $114,400
-        insert_call = mock_supabase.table.return_value.insert.call_args
-        inserted_data = insert_call[0][0]
-        assert inserted_data["amount_requested"] == 114400
+        upsert_call = mock_supabase.table.return_value.upsert.call_args
+        upserted_data = upsert_call[0][0]
+        assert upserted_data["amount_requested"] == 114400
 
     def test_push_includes_budget_data_in_jsonb(
         self, mock_supabase, sync_config
@@ -477,30 +475,28 @@ class TestBudgetSync:
                 f,
             )
 
-        # Mock select to return empty (grant doesn't exist) so insert is called
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
-            []
-        )
-        mock_supabase.table.return_value.insert.return_value.execute.return_value = (
+        mock_supabase.table.return_value.upsert.return_value.execute.return_value = (
             MagicMock()
         )
 
         sync = GrantKitSync(sync_config)
         sync.push(grant_id="test-grant")
 
-        insert_call = mock_supabase.table.return_value.insert.call_args
-        inserted_data = insert_call[0][0]
+        upsert_call = mock_supabase.table.return_value.upsert.call_args
+        upserted_data = upsert_call[0][0]
 
         # Should have budget JSONB with full budget.yaml + summary
-        assert "budget" in inserted_data
+        assert "budget" in upserted_data
         # Full budget.yaml content preserved
-        assert "years_in_budget" in inserted_data["budget"]
-        assert "personnel" in inserted_data["budget"]
+        assert "years_in_budget" in upserted_data["budget"]
+        assert "personnel" in upserted_data["budget"]
         # Summary formatted for app
-        assert "summary" in inserted_data["budget"]
-        assert "total" in inserted_data["budget"]["summary"]
-        assert "total" in inserted_data["budget"]["summary"]["total"]
-        assert "year_1" in inserted_data["budget"]["summary"]
+        assert "summary" in upserted_data["budget"]
+        assert "grand_total" in upserted_data["budget"]["summary"]
+        # Year breakdowns in category summaries
+        assert (
+            "year_1" in upserted_data["budget"]["summary"]["senior_personnel"]
+        )
 
     def test_push_without_budget_yaml_uses_grant_yaml_amount(
         self, mock_supabase, sync_config
@@ -522,20 +518,16 @@ class TestBudgetSync:
 
         # No budget.yaml file
 
-        # Mock select to return empty (grant doesn't exist) so insert is called
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
-            []
-        )
-        mock_supabase.table.return_value.insert.return_value.execute.return_value = (
+        mock_supabase.table.return_value.upsert.return_value.execute.return_value = (
             MagicMock()
         )
 
         sync = GrantKitSync(sync_config)
         sync.push(grant_id="test-grant")
 
-        insert_call = mock_supabase.table.return_value.insert.call_args
-        inserted_data = insert_call[0][0]
-        assert inserted_data["amount_requested"] == 75000
+        upsert_call = mock_supabase.table.return_value.upsert.call_args
+        upserted_data = upsert_call[0][0]
+        assert upserted_data["amount_requested"] == 75000
 
     def test_push_updates_research_gov_total(self, mock_supabase, sync_config):
         """Push should update research_gov.total_requested when present."""
@@ -661,22 +653,18 @@ class TestBudgetSync:
                 f,
             )
 
-        # Mock select to return empty (grant doesn't exist) so insert is called
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
-            []
-        )
-        mock_supabase.table.return_value.insert.return_value.execute.return_value = (
+        mock_supabase.table.return_value.upsert.return_value.execute.return_value = (
             MagicMock()
         )
 
         sync = GrantKitSync(sync_config)
         sync.push(grant_id="test-grant")
 
-        insert_call = mock_supabase.table.return_value.insert.call_args
-        inserted_data = insert_call[0][0]
+        upsert_call = mock_supabase.table.return_value.upsert.call_args
+        upserted_data = upsert_call[0][0]
 
         # Budget JSONB must preserve personnel with year_1, year_2, year_3 funds
-        budget = inserted_data["budget"]
+        budget = upserted_data["budget"]
         assert "personnel" in budget
 
         # Senior/key personnel must have year funds
