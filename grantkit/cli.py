@@ -19,6 +19,7 @@ from .auth import (
     get_current_user,
     is_logged_in,
 )
+from .budget.calculator import BudgetCalculator
 from .budget.manager import BudgetManager
 from .core.assembler import GrantAssembler
 from .core.validator import NSFValidator
@@ -1109,6 +1110,11 @@ def budget(
     ctx: click.Context, output_dir: Optional[Path], output_format: str
 ) -> None:
     """Build and validate the project budget."""
+    import json as json_module
+
+    import yaml
+
+    from .utils.io import ensure_directory
 
     project_root = ctx.obj["project_root"]
 
@@ -1136,6 +1142,14 @@ def budget(
             )
             sys.exit(1)
 
+    # Load grant.yaml for budget cap
+    grant_yaml = project_root / "grant.yaml"
+    budget_cap = 1_500_000  # Default NSF cap
+    if grant_yaml.exists():
+        with open(grant_yaml, "r", encoding="utf-8") as f:
+            grant_data = yaml.safe_load(f) or {}
+            budget_cap = grant_data.get("budget_cap", budget_cap)
+
     try:
         with Progress(
             SpinnerColumn(),
@@ -1146,50 +1160,68 @@ def budget(
                 "Loading budget specification...", total=None
             )
 
-            manager = BudgetManager()
-            manager.load_from_yaml(budget_yaml)
+            calc = BudgetCalculator(budget_yaml)
+            summary = calc.get_summary()
 
             progress.update(task, description="Calculating totals...")
 
-            summary = manager.calculate_totals()
+            grand_total = summary["grand_total"]
+            total_direct = summary["total_direct_costs"]["total"]
+            indirect_total = summary["indirect_costs"]["total"]
+            headroom = budget_cap - grand_total
 
             progress.update(task, description="Generating reports...")
 
             # Generate outputs
+            ensure_directory(output_dir)
+
             if output_format in ["markdown", "both"]:
                 md_path = output_dir / "budget_narrative.md"
-                manager.generate_budget_narrative(md_path)
+                _generate_budget_narrative(summary, budget_cap, md_path)
 
             if output_format in ["json", "both"]:
                 json_path = output_dir / "budget.json"
-                manager.export_json(json_path)
+                json_data = {
+                    "budget_cap": budget_cap,
+                    "grand_total": grand_total,
+                    "total_direct_costs": total_direct,
+                    "indirect_costs": indirect_total,
+                    "headroom": headroom,
+                    "categories": {
+                        "A_senior_personnel": summary["senior_personnel"],
+                        "B_other_personnel": summary["other_personnel"],
+                        "C_fringe_benefits": summary["fringe_benefits"],
+                        "D_equipment": summary["equipment"],
+                        "E_travel": summary["travel"],
+                        "F_participant_support": summary["participant_support"],
+                        "G_other_direct_costs": summary["other_direct_costs"],
+                        "I_indirect_costs": summary["indirect_costs"],
+                    },
+                    "generated": datetime.now().isoformat(),
+                }
+                with open(json_path, "w", encoding="utf-8") as f:
+                    json_module.dump(json_data, f, indent=2)
 
         # Display summary
         panel_content = f"""[bold]Budget Summary[/bold]
 
-💰 Total Budget: ${summary.total_costs:,.0f}
-📊 Budget Cap:   ${summary.budget_cap:,.0f}
-📈 Headroom:     ${summary.headroom:,.0f} ({summary.headroom/summary.budget_cap*100:.1f}%)
+💰 Total Budget: ${grand_total:,.0f}
+📊 Budget Cap:   ${budget_cap:,.0f}
+📈 Headroom:     ${headroom:,.0f} ({headroom/budget_cap*100:.1f}%)
 
-Direct Costs:   ${summary.total_costs - summary.indirect_costs:,.0f}
-Indirect Costs: ${summary.indirect_costs:,.0f}"""
+Direct Costs:   ${total_direct:,.0f}
+Indirect Costs: ${indirect_total:,.0f}"""
 
-        if summary.headroom < 0:
+        if headroom < 0:
             panel_style = "red"
-            panel_content += f"\n\n[red]⚠️  Over budget by ${abs(summary.headroom):,.0f}[/red]"
-        elif summary.headroom < summary.budget_cap * 0.1:
+            panel_content += f"\n\n[red]⚠️  Over budget by ${abs(headroom):,.0f}[/red]"
+        elif headroom < budget_cap * 0.1:
             panel_style = "yellow"
             panel_content += "\n\n[yellow]⚠️  Low headroom remaining[/yellow]"
         else:
             panel_style = "green"
 
         console.print(Panel(panel_content, style=panel_style))
-
-        # Show validation issues
-        if summary.validation_issues:
-            console.print("\n[yellow]⚠️  Budget Issues:[/yellow]")
-            for issue in summary.validation_issues:
-                console.print(f"  • {issue}")
 
         # Show category breakdown
         if ctx.obj["verbose"]:
@@ -1198,23 +1230,30 @@ Indirect Costs: ${summary.indirect_costs:,.0f}"""
             table.add_column("Amount", justify="right")
             table.add_column("Percentage", justify="right")
 
-            for cat_code, amount in summary.direct_costs.items():
+            categories = [
+                ("A", "Senior Personnel", summary["senior_personnel"]["total"]),
+                ("B", "Other Personnel", summary["other_personnel"]["total"]),
+                ("C", "Fringe Benefits", summary["fringe_benefits"]["total"]),
+                ("D", "Equipment", summary["equipment"]["total"]),
+                ("E", "Travel", summary["travel"]["total"]),
+                ("F", "Participant Support", summary["participant_support"]["total"]),
+                ("G", "Other Direct Costs", summary["other_direct_costs"]["total"]),
+            ]
+
+            for cat_code, cat_name, amount in categories:
                 if amount > 0:
-                    manager_cat_name = BudgetManager.NSF_CATEGORIES.get(
-                        cat_code, cat_code
-                    )
-                    pct = amount / summary.total_costs * 100
+                    pct = amount / grand_total * 100
                     table.add_row(
-                        f"{cat_code}. {manager_cat_name}",
+                        f"{cat_code}. {cat_name}",
                         f"${amount:,.0f}",
                         f"{pct:.1f}%",
                     )
 
-            if summary.indirect_costs > 0:
-                pct = summary.indirect_costs / summary.total_costs * 100
+            if indirect_total > 0:
+                pct = indirect_total / grand_total * 100
                 table.add_row(
                     "I. Indirect Costs",
-                    f"${summary.indirect_costs:,.0f}",
+                    f"${indirect_total:,.0f}",
                     f"{pct:.1f}%",
                     style="dim",
                 )
@@ -1234,6 +1273,76 @@ Indirect Costs: ${summary.indirect_costs:,.0f}"""
         if ctx.obj["verbose"]:
             console.print_exception()
         sys.exit(1)
+
+
+def _generate_budget_narrative(
+    summary: dict, budget_cap: float, output_path: Path
+) -> None:
+    """Generate a budget narrative markdown file from calculator summary."""
+    grand_total = summary["grand_total"]
+    total_direct = summary["total_direct_costs"]["total"]
+    indirect_total = summary["indirect_costs"]["total"]
+    headroom = budget_cap - grand_total
+
+    lines = [
+        "# Budget Narrative",
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        "",
+        "## Summary",
+        f"- **Total Budget:** ${grand_total:,.0f}",
+        f"- **Budget Cap:** ${budget_cap:,.0f}",
+        f"- **Headroom:** ${headroom:,.0f}",
+        "",
+    ]
+
+    # Category sections
+    categories = [
+        ("A", "Senior Personnel", "senior_personnel"),
+        ("B", "Other Personnel", "other_personnel"),
+        ("C", "Fringe Benefits", "fringe_benefits"),
+        ("D", "Equipment", "equipment"),
+        ("E", "Travel", "travel"),
+        ("F", "Participant Support", "participant_support"),
+        ("G", "Other Direct Costs", "other_direct_costs"),
+    ]
+
+    for cat_code, cat_name, key in categories:
+        cat_data = summary[key]
+        if cat_data["total"] > 0:
+            lines.append(f"## {cat_code}. {cat_name}")
+            lines.append("")
+            for year in range(1, 10):
+                year_key = f"year_{year}"
+                if year_key in cat_data:
+                    lines.append(f"- Year {year}: ${cat_data[year_key]:,}")
+            lines.append(f"- **Total:** ${cat_data['total']:,}")
+            lines.append("")
+
+    # Indirect costs
+    if indirect_total > 0:
+        lines.append("## I. Indirect Costs (F&A)")
+        lines.append("")
+        ind_data = summary["indirect_costs"]
+        rate = ind_data.get("rate", 0)
+        if rate:
+            lines.append(f"Rate: {rate*100:.1f}% on MTDC")
+        for year in range(1, 10):
+            year_key = f"year_{year}"
+            if year_key in ind_data:
+                lines.append(f"- Year {year}: ${ind_data[year_key]:,}")
+        lines.append(f"- **Total:** ${indirect_total:,}")
+        lines.append("")
+
+    # Totals
+    lines.extend([
+        "---",
+        f"**Total Direct Costs:** ${total_direct:,}",
+        f"**Total Indirect Costs:** ${indirect_total:,}",
+        f"**Grand Total:** ${grand_total:,}",
+    ])
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
 
 
 @main.command()
