@@ -1,0 +1,39 @@
+# RAF Request for Ideas Configuration
+# AI Tools to Streamline Public-Sector Procedures
+
+title: "AI Tools to Streamline Public-Sector Procedures"
+pi: "Max Ghenis"
+institution: "PolicyEngine (PSL Foundation)"
+
+raf:
+  program_id: rfi-ai-tools
+  sections:
+    - id: about
+      title: "About PolicyEngine"
+      file: responses/about.md
+      page_limit: 1
+      required: true
+
+    - id: perspective
+      title: "Our Perspective on RAF's Concepts"
+      file: responses/perspective.md
+      page_limit: 2
+      required: true
+
+    - id: cost_timeline
+      title: "Indicative Cost and Timeline"
+      file: responses/cost_timeline.md
+      required: true
+
+    - id: partnership
+      title: "Partnership Model"
+      file: responses/partnership.md
+      required: true
+
+basic_info:
+  program: "RAF Request for Ideas"
+  project_title: "AI Tools to Streamline Public-Sector Procedures"
+  organization_name: "PolicyEngine (PSL Foundation, 501(c)(3))"
+  deadline: "2025-12-08"
+  amount_requested: 300000
+  duration_months: 9
