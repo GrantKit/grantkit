@@ -1,5 +1,8 @@
 """OAuth device flow authentication for GrantKit CLI."""
 
+# Apply compatibility patches before importing supabase/httpx
+from . import compat  # noqa: F401
+
 import json
 import logging
 import os
