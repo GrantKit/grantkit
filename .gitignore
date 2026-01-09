@@ -72,3 +72,4 @@ venv.bak/
 # Project-specific
 *.pdf
 assembled_proposal.md
+.vercel

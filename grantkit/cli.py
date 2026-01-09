@@ -2659,5 +2659,148 @@ def watch(ctx: click.Context, grant: Optional[str]) -> None:
         sys.exit(1)
 
 
+@sync.command()
+@click.argument("grant_id")
+@click.argument("email")
+@click.option(
+    "--role",
+    "-r",
+    type=click.Choice(["viewer", "editor"], case_sensitive=False),
+    default="editor",
+    help="Permission level (default: editor)",
+)
+@click.pass_context
+def share(ctx: click.Context, grant_id: str, email: str, role: str) -> None:
+    """Share a grant with another user.
+
+    GRANT_ID is the grant to share (e.g., 'anthropic-economic-futures').
+    EMAIL is the collaborator's email address.
+
+    Examples:
+        grantkit sync share my-grant colleague@example.com
+        grantkit sync share my-grant colleague@example.com --role viewer
+    """
+    from .sync import get_sync_client
+
+    project_root = ctx.obj["project_root"]
+
+    if not is_logged_in():
+        console.print("[red]❌ You must be logged in to share grants[/red]")
+        console.print("[dim]Run 'grantkit auth login' first[/dim]")
+        sys.exit(1)
+
+    try:
+        sync_client = get_sync_client(project_root)
+        result = sync_client.share(grant_id=grant_id, email=email, role=role)
+
+        if result["success"]:
+            console.print(
+                f"[green]✅ Shared '{grant_id}' with {email} as {role}[/green]"
+            )
+        else:
+            console.print(f"[red]❌ {result['error']}[/red]")
+            sys.exit(1)
+
+    except Exception as e:
+        console.print(f"[red]❌ Share failed: {e}[/red]")
+        if ctx.obj["verbose"]:
+            console.print_exception()
+        sys.exit(1)
+
+
+@sync.command()
+@click.argument("grant_id")
+@click.argument("email")
+@click.pass_context
+def unshare(ctx: click.Context, grant_id: str, email: str) -> None:
+    """Remove a collaborator from a grant.
+
+    GRANT_ID is the grant ID.
+    EMAIL is the collaborator's email to remove.
+    """
+    from .sync import get_sync_client
+
+    project_root = ctx.obj["project_root"]
+
+    if not is_logged_in():
+        console.print(
+            "[red]❌ You must be logged in to manage collaborators[/red]"
+        )
+        console.print("[dim]Run 'grantkit auth login' first[/dim]")
+        sys.exit(1)
+
+    try:
+        sync_client = get_sync_client(project_root)
+        result = sync_client.unshare(grant_id=grant_id, email=email)
+
+        if result["success"]:
+            console.print(
+                f"[green]✅ Removed {email} from '{grant_id}'[/green]"
+            )
+        else:
+            console.print(f"[red]❌ {result['error']}[/red]")
+            sys.exit(1)
+
+    except Exception as e:
+        console.print(f"[red]❌ Unshare failed: {e}[/red]")
+        if ctx.obj["verbose"]:
+            console.print_exception()
+        sys.exit(1)
+
+
+@sync.command("collaborators")
+@click.argument("grant_id")
+@click.pass_context
+def list_collaborators(ctx: click.Context, grant_id: str) -> None:
+    """List all collaborators for a grant.
+
+    GRANT_ID is the grant to list collaborators for.
+    """
+    from .sync import get_sync_client
+
+    project_root = ctx.obj["project_root"]
+
+    if not is_logged_in():
+        console.print(
+            "[red]❌ You must be logged in to view collaborators[/red]"
+        )
+        console.print("[dim]Run 'grantkit auth login' first[/dim]")
+        sys.exit(1)
+
+    try:
+        sync_client = get_sync_client(project_root)
+        collaborators = sync_client.list_collaborators(grant_id=grant_id)
+
+        if not collaborators:
+            console.print(
+                f"[yellow]No collaborators found for '{grant_id}'[/yellow]"
+            )
+            return
+
+        table = Table(title=f"Collaborators for '{grant_id}'")
+        table.add_column("Email", style="cyan")
+        table.add_column("Role", style="green")
+        table.add_column("Added", style="dim")
+
+        for collab in collaborators:
+            table.add_row(
+                collab["user_email"],
+                collab["role"],
+                (
+                    collab.get("created_at", "")[:10]
+                    if collab.get("created_at")
+                    else ""
+                ),
+            )
+
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[red]❌ Failed to list collaborators: {e}[/red]")
+        if ctx.obj["verbose"]:
+            console.print_exception()
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     main()
