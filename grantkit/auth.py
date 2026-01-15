@@ -15,7 +15,7 @@ from supabase import Client, create_client
 logger = logging.getLogger(__name__)
 
 # Constants
-DEFAULT_SUPABASE_URL = "https://jgrvjvqhrngcdmtrojlk.supabase.co"
+DEFAULT_SUPABASE_URL = "https://bmfssahcufqykfagvgtm.supabase.co"
 APP_URL = "https://app.grantkit.io"
 CREDENTIALS_FILE = Path.home() / ".grantkit" / "credentials.json"
 
@@ -87,7 +87,7 @@ def refresh_access_token(creds: Credentials) -> Optional[Credentials]:
     # Use anon key for refresh - Supabase handles the refresh token validation
     supabase_key = os.environ.get(
         "GRANTKIT_SUPABASE_ANON_KEY",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpncnZqdnFocm5nY2RtdHJvamxrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNTU4MTIsImV4cCI6MjA3OTYzMTgxMn0.hbUgodUx4lAzV7nsRRqDoyvSyOOnoPxBVLzIj0AlOss",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZnNzYWhjdWZxeWtmYWd2Z3RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5MTM2NTQsImV4cCI6MjA4MzQ4OTY1NH0.K9HjAEcGXAFYx5vm67rQdG0xUO68pDy5AMdn80x4QPI",
     )
 
     try:
@@ -132,7 +132,7 @@ def get_authenticated_client() -> Optional[Client]:
     # Use anon key for initial client creation
     supabase_key = os.environ.get(
         "GRANTKIT_SUPABASE_ANON_KEY",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpncnZqdnFocm5nY2RtdHJvamxrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNTU4MTIsImV4cCI6MjA3OTYzMTgxMn0.hbUgodUx4lAzV7nsRRqDoyvSyOOnoPxBVLzIj0AlOss",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZnNzYWhjdWZxeWtmYWd2Z3RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5MTM2NTQsImV4cCI6MjA4MzQ4OTY1NH0.K9HjAEcGXAFYx5vm67rQdG0xUO68pDy5AMdn80x4QPI",
     )
 
     try:
@@ -165,7 +165,7 @@ def device_login(timeout: int = 300) -> Optional[Credentials]:
     )
     supabase_key = os.environ.get(
         "GRANTKIT_SUPABASE_ANON_KEY",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpncnZqdnFocm5nY2RtdHJvamxrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNTU4MTIsImV4cCI6MjA3OTYzMTgxMn0.hbUgodUx4lAzV7nsRRqDoyvSyOOnoPxBVLzIj0AlOss",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZnNzYWhjdWZxeWtmYWd2Z3RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5MTM2NTQsImV4cCI6MjA4MzQ4OTY1NH0.K9HjAEcGXAFYx5vm67rQdG0xUO68pDy5AMdn80x4QPI",
     )
 
     # Generate a unique device code

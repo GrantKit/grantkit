@@ -283,8 +283,13 @@ def list_collaborators(ctx: click.Context, grant_id: str) -> None:
 
     try:
         sync_client = get_sync_client(project_root)
-        collaborators = sync_client.list_collaborators(grant_id=grant_id)
+        result = sync_client.list_collaborators(grant_id=grant_id)
 
+        if not result["success"]:
+            console.print(f"[red]{result.get('error', 'Unknown error')}[/red]")
+            sys.exit(1)
+
+        collaborators = result.get("collaborators", [])
         if not collaborators:
             console.print(
                 f"[yellow]No collaborators found for '{grant_id}'[/yellow]"
