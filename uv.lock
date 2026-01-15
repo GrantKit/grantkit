@@ -507,6 +507,11 @@ pdf = [
     { name = "weasyprint" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "anthropic", marker = "extra == 'ai'", specifier = ">=0.20" },
@@ -532,6 +537,9 @@ requires-dist = [
     { name = "weasyprint", marker = "extra == 'pdf'", specifier = ">=60.0" },
 ]
 provides-extras = ["pdf", "ai", "dev", "all"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.1" }]
 
 [[package]]
 name = "h11"

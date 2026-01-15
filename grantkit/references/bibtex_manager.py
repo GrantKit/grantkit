@@ -156,25 +156,75 @@ class BibTeXManager:
             return re.sub(r"[{}]", "", text).strip()
 
     def _parse_authors(self, authors_raw: str) -> List[str]:
-        """Parse author string into a list of individual authors."""
+        """Parse author string into a list of individual authors.
+
+        Handles:
+        - Regular authors: "Last, First" or "First Last"
+        - Multiple authors: separated by " and "
+        - Corporate authors: wrapped in braces {{Name}} (bibtexparser preserves one brace level)
+        - Corporate authors with "and" in name: braces prevent splitting
+        """
         if not authors_raw:
             return []
 
-        # Clean LaTeX
-        authors_clean = self._clean_latex(authors_raw)
+        stripped = authors_raw.strip()
 
-        # Split by 'and'
-        authors = [author.strip() for author in authors_clean.split(" and ")]
+        # Single braced corporate author - return immediately
+        if (
+            stripped.startswith("{")
+            and stripped.endswith("}")
+            and stripped.count("{") == 1
+            and stripped.count("}") == 1
+        ):
+            return [stripped[1:-1].strip()]
 
-        # Handle various name formats
+        # Split by ' and ' while preserving braced content
+        raw_authors = self._split_authors_by_and(authors_raw)
+
+        # Process each author
         parsed_authors = []
-        for author in authors:
-            if not author:
-                continue
-            # For now, just clean up whitespace
-            parsed_authors.append(" ".join(author.split()))
+        for author in raw_authors:
+            if author.startswith("{") and author.endswith("}"):
+                # Corporate/institutional author - remove braces
+                parsed_authors.append(author[1:-1].strip())
+            else:
+                # Regular author - clean LaTeX and normalize whitespace
+                cleaned = self._clean_latex(author)
+                parsed_authors.append(" ".join(cleaned.split()))
 
         return parsed_authors
+
+    def _split_authors_by_and(self, authors_raw: str) -> List[str]:
+        """Split author string by ' and ' while preserving braced content."""
+        authors = []
+        current = ""
+        brace_depth = 0
+        i = 0
+
+        while i < len(authors_raw):
+            char = authors_raw[i]
+
+            if char == "{":
+                brace_depth += 1
+                current += char
+            elif char == "}":
+                brace_depth -= 1
+                current += char
+            elif brace_depth == 0 and authors_raw[i : i + 5] == " and ":
+                if current.strip():
+                    authors.append(current.strip())
+                current = ""
+                i += 5
+                continue
+            else:
+                current += char
+
+            i += 1
+
+        if current.strip():
+            authors.append(current.strip())
+
+        return authors
 
     def get_entry(self, key: str) -> Optional[BibEntry]:
         """Get a bibliography entry by key."""

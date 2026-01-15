@@ -9,11 +9,11 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from .commands.auth import auth
-from .commands.build import build, count, status, validate, validate_biosketch
+from .commands.build import build, count, status, validate, validate_biosketch, validate_markdown
 from .commands.budget import budget, check_salaries
 from .commands.pdf import check_pages, export, pdf, pdf_capabilities
 from .commands.project import archive, init, list_archived, new, programs
-from .commands.references import check_citations, validate_urls
+from .commands.references import check_citations, render_references, validate_urls
 from .commands.sync import sync
 from .utils.io import find_project_root
 
@@ -76,6 +76,7 @@ main.add_command(count)
 main.add_command(status)
 main.add_command(validate)
 main.add_command(validate_biosketch)
+main.add_command(validate_markdown)
 
 main.add_command(budget)
 main.add_command(check_salaries)
@@ -86,6 +87,7 @@ main.add_command(check_pages)
 main.add_command(pdf_capabilities)
 
 main.add_command(check_citations)
+main.add_command(render_references)
 main.add_command(validate_urls)
 
 

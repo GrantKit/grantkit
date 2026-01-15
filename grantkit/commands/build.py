@@ -11,6 +11,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from ..core.assembler import GrantAssembler
+from ..core.markdown_validator import MarkdownContentValidator
 from ..core.validator import NSFValidator
 
 console = Console()
@@ -363,123 +364,222 @@ Total Words: {status_info['total_words']:,}
 
 
 @click.command()
+@click.option("--grant", "-g", help="Specific grant directory to validate")
 @click.option("--strict", is_flag=True, help="Treat warnings as errors")
-@click.option(
-    "--output",
-    "-o",
-    type=click.Path(path_type=Path),
-    help="Save validation report to file",
-)
+@click.option("--nsf", is_flag=True, help="Run NSF-specific compliance checks")
 @click.pass_context
-def validate(ctx: click.Context, strict: bool, output: Optional[Path]) -> None:
-    """Run NSF compliance validation on the proposal."""
+def validate(ctx: click.Context, grant: Optional[str], strict: bool, nsf: bool) -> None:
+    """Run comprehensive validation on grant responses.
+
+    Checks:
+    - Word/character counts against limits defined in grant.yaml
+    - Markdown syntax in plain-text grants (accepts_markdown: false)
+    - Missing required sections
+    - NSF-specific compliance (with --nsf flag)
+
+    Examples:
+        grantkit validate                    # Validate all grants
+        grantkit validate -g nuffield-2025   # Validate specific grant
+        grantkit validate --nsf              # Include NSF compliance checks
+    """
+    import yaml
 
     project_root = ctx.obj["project_root"]
+    total_errors = 0
+    total_warnings = 0
 
-    try:
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Loading proposal content...", total=None)
+    # Find grant directories
+    if grant:
+        grant_dirs = [project_root / grant]
+    else:
+        grant_dirs = [
+            d
+            for d in project_root.iterdir()
+            if d.is_dir() and (d / "grant.yaml").exists()
+        ]
 
-            assembler = GrantAssembler(project_root)
-            assembler.load_all_content()
+    if not grant_dirs:
+        console.print("[yellow]No grants found to validate[/yellow]")
+        console.print("[dim]Run from a directory containing grant folders with grant.yaml[/dim]")
+        return
 
-            # Assemble content for validation
-            temp_result = assembler.assemble_document()
-            if not temp_result.success:
-                console.print(
-                    "[red]Cannot validate - assembly failed[/red]"
+    for grant_dir in grant_dirs:
+        grant_yaml = grant_dir / "grant.yaml"
+        if not grant_yaml.exists():
+            continue
+
+        with open(grant_yaml) as f:
+            grant_meta = yaml.safe_load(f) or {}
+
+        grant_name = grant_meta.get("name", grant_dir.name)
+        console.print(f"\n[bold cyan]Validating: {grant_name}[/bold cyan]")
+        console.print(f"[dim]{grant_dir}[/dim]\n")
+
+        grant_errors = 0
+        grant_warnings = 0
+
+        # Get sections config - check full_application first (Nuffield-style), then top-level
+        full_app = grant_meta.get("full_application", {})
+        sections = full_app.get("sections", grant_meta.get("sections", []))
+        accepts_markdown = full_app.get(
+            "accepts_markdown", grant_meta.get("accepts_markdown", True)
+        )
+
+        # === Word Count Validation ===
+        console.print("[bold]Word Counts:[/bold]")
+        word_count_table = Table(show_header=True, header_style="bold")
+        word_count_table.add_column("Section")
+        word_count_table.add_column("Words", justify="right")
+        word_count_table.add_column("Limit", justify="right")
+        word_count_table.add_column("Status")
+
+        for section in sections:
+            file_path = grant_dir / section.get("file", f"responses/{section['id']}.md")
+            word_limit = section.get("word_limit")
+            char_limit = section.get("char_limit")
+
+            if not file_path.exists():
+                word_count_table.add_row(
+                    section.get("title", section["id"]),
+                    "-",
+                    str(word_limit) if word_limit else "-",
+                    "[red]MISSING[/red]",
                 )
-                sys.exit(1)
+                if section.get("required", True):
+                    grant_errors += 1
+                continue
 
-            progress.update(task, description="Running validation checks...")
+            content = file_path.read_text(encoding="utf-8")
 
-            validator = NSFValidator()
+            # Strip frontmatter for word count
+            if content.startswith("---"):
+                parts = content.split("---", 2)
+                if len(parts) >= 3:
+                    content = parts[2].strip()
 
-            # Read assembled content
-            content = temp_result.output_path.read_text(encoding="utf-8")
+            word_count = len(content.split())
 
-            # Run validation
-            validation_result = validator.validate_proposal(content)
+            # Determine status
+            if word_limit:
+                limit_str = f"{word_limit:,}"
+                if word_count > word_limit:
+                    over = word_count - word_limit
+                    status = f"[red]OVER by {over:,}[/red]"
+                    grant_errors += 1
+                elif word_count > word_limit * 0.95:
+                    remaining = word_limit - word_count
+                    status = f"[yellow]{remaining:,} left[/yellow]"
+                else:
+                    status = "[green]OK[/green]"
+            elif char_limit:
+                char_count = len(content)
+                limit_str = f"{char_limit:,} chars"
+                if char_count > char_limit:
+                    over = char_count - char_limit
+                    status = f"[red]OVER by {over:,} chars[/red]"
+                    grant_errors += 1
+                else:
+                    status = "[green]OK[/green]"
+            else:
+                limit_str = "-"
+                status = "[dim]no limit[/dim]"
 
-        # Display results
-        if validation_result.passed and not (
-            strict and validation_result.warnings_count > 0
-        ):
-            console.print("[green]All validation checks passed![/green]")
+            word_count_table.add_row(
+                section.get("title", section["id"]),
+                f"{word_count:,}",
+                limit_str,
+                status,
+            )
+
+        console.print(word_count_table)
+
+        # === Markdown Syntax Validation ===
+        if not accepts_markdown:
+            console.print("\n[bold]Markdown Syntax Check:[/bold]")
+            console.print("[dim]Grant requires plain text (accepts_markdown: false)[/dim]")
+
+            md_validator = MarkdownContentValidator(accepts_markdown=False)
+
+            # Find responses directory
+            response_dirs = [
+                grant_dir / "responses" / "full",
+                grant_dir / "responses",
+                grant_dir / "docs" / "responses",
+            ]
+
+            md_errors = []
+            for responses_dir in response_dirs:
+                if responses_dir.exists():
+                    result = md_validator.validate_directory(responses_dir)
+                    md_errors = result.violations
+                    break
+
+            if md_errors:
+                console.print(f"[red]Found {len(md_errors)} markdown syntax issues:[/red]")
+                # Group by file
+                by_file = {}
+                for v in md_errors:
+                    if v.file_path not in by_file:
+                        by_file[v.file_path] = []
+                    by_file[v.file_path].append(v)
+
+                for file_path, violations in list(by_file.items())[:5]:  # Show first 5 files
+                    console.print(f"  [bold]{file_path}[/bold]")
+                    for v in violations[:3]:  # Show first 3 per file
+                        console.print(f"    Line {v.line_number}: [red]{v.message}[/red]")
+                    if len(violations) > 3:
+                        console.print(f"    [dim]... and {len(violations) - 3} more in this file[/dim]")
+
+                if len(by_file) > 5:
+                    console.print(f"  [dim]... and {len(by_file) - 5} more files with issues[/dim]")
+
+                grant_errors += len(md_errors)
+            else:
+                console.print("[green]No markdown syntax issues found[/green]")
         else:
-            status_color = (
-                "red" if validation_result.errors_count > 0 else "yellow"
-            )
-            console.print(
-                f"[{status_color}]Validation issues found[/{status_color}]"
-            )
+            console.print("\n[dim]Markdown syntax check skipped (accepts_markdown: true)[/dim]")
 
-        # Summary table
-        table = Table(title="Validation Summary")
-        table.add_column("Type", style="bold")
-        table.add_column("Count", justify="right")
+        # === NSF-Specific Validation ===
+        if nsf:
+            console.print("\n[bold]NSF Compliance Check:[/bold]")
+            try:
+                nsf_validator = NSFValidator(grant_dir)
+                nsf_result = nsf_validator.validate()
 
-        table.add_row(
-            "Errors",
-            str(validation_result.errors_count),
-            style="red" if validation_result.errors_count > 0 else "green",
-        )
-        table.add_row(
-            "Warnings",
-            str(validation_result.warnings_count),
-            style=(
-                "yellow" if validation_result.warnings_count > 0 else "green"
-            ),
-        )
-        table.add_row("Total Issues", str(len(validation_result.issues)))
+                if nsf_result.passed:
+                    console.print("[green]NSF compliance checks passed[/green]")
+                else:
+                    console.print(f"[red]Found {nsf_result.errors_count} NSF compliance errors[/red]")
+                    for issue in nsf_result.issues[:5]:
+                        if issue.severity == "error":
+                            console.print(f"  [red]- {issue.message}[/red]")
+                    grant_errors += nsf_result.errors_count
+                    grant_warnings += nsf_result.warnings_count
+            except Exception as e:
+                console.print(f"[yellow]NSF validation skipped: {e}[/yellow]")
 
-        console.print(table)
+        # === Grant Summary ===
+        console.print()
+        if grant_errors == 0 and grant_warnings == 0:
+            console.print(f"[green]✓ {grant_dir.name}: All checks passed[/green]")
+        elif grant_errors == 0:
+            console.print(f"[yellow]⚠ {grant_dir.name}: {grant_warnings} warning(s)[/yellow]")
+        else:
+            console.print(f"[red]✗ {grant_dir.name}: {grant_errors} error(s), {grant_warnings} warning(s)[/red]")
 
-        # Show issues
-        if validation_result.issues:
-            console.print("\n[bold]Issues Found:[/bold]")
-            for i, issue in enumerate(validation_result.issues, 1):
-                icon = (
-                    "[red]ERROR[/red]"
-                    if issue.severity == "error"
-                    else "[yellow]WARN[/yellow]" if issue.severity == "warning" else "[blue]INFO[/blue]"
-                )
-                color = (
-                    "red"
-                    if issue.severity == "error"
-                    else "yellow" if issue.severity == "warning" else "blue"
-                )
+        total_errors += grant_errors
+        total_warnings += grant_warnings
 
-                console.print(f"\n{icon} [{color}]{issue.message}[/{color}]")
-                if issue.location:
-                    console.print(f"   [dim]Location: {issue.location}[/dim]")
-                if issue.suggestion:
-                    console.print(
-                        f"   [dim]Suggestion: {issue.suggestion}[/dim]"
-                    )
-                if issue.rule:
-                    console.print(f"   [dim]Rule: {issue.rule}[/dim]")
+    # === Overall Summary ===
+    console.print("\n" + "=" * 50)
+    if total_errors == 0 and total_warnings == 0:
+        console.print("[bold green]All validation checks passed![/bold green]")
+    elif total_errors == 0:
+        console.print(f"[bold yellow]Validation complete with {total_warnings} warning(s)[/bold yellow]")
+    else:
+        console.print(f"[bold red]Validation failed: {total_errors} error(s), {total_warnings} warning(s)[/bold red]")
 
-        # Save report if requested
-        if output:
-            report = validator.get_validation_report([validation_result])
-            output.write_text(report, encoding="utf-8")
-            console.print(f"\n[dim]Report saved to: {output}[/dim]")
-
-        # Exit with error code if validation failed
-        if validation_result.errors_count > 0 or (
-            strict and validation_result.warnings_count > 0
-        ):
-            sys.exit(1)
-
-    except Exception as e:
-        console.print(f"[red]Validation failed: {e}[/red]")
-        if ctx.obj["verbose"]:
-            console.print_exception()
+    if total_errors > 0 or (strict and total_warnings > 0):
         sys.exit(1)
 
 
@@ -552,3 +652,113 @@ def validate_biosketch(ctx: click.Context, file_path: Optional[Path]) -> None:
 
     if result.errors_count > 0:
         sys.exit(1)
+
+
+@click.command("validate-markdown")
+@click.option("--grant", "-g", help="Specific grant directory to validate")
+@click.pass_context
+def validate_markdown(ctx: click.Context, grant: Optional[str]) -> None:
+    """Validate that plain-text grants don't contain markdown syntax.
+
+    Checks response files in grants marked with accepts_markdown: false
+    for markdown syntax like tables, headers, bold/italic, links, etc.
+
+    This catches issues where markdown formatting would be copied literally
+    into a text-only submission form.
+    """
+    import yaml
+
+    project_root = ctx.obj["project_root"]
+    errors = []
+    grants_checked = 0
+
+    # Find grant directories
+    if grant:
+        grant_dirs = [project_root / grant]
+    else:
+        grant_dirs = [
+            d
+            for d in project_root.iterdir()
+            if d.is_dir() and (d / "grant.yaml").exists()
+        ]
+
+    for grant_dir in grant_dirs:
+        grant_yaml = grant_dir / "grant.yaml"
+        if not grant_yaml.exists():
+            continue
+
+        # Check if grant accepts markdown
+        with open(grant_yaml) as f:
+            grant_meta = yaml.safe_load(f) or {}
+
+        # Check in full_application (Nuffield-style) or top-level
+        full_app = grant_meta.get("full_application", {})
+        accepts_markdown = full_app.get(
+            "accepts_markdown", grant_meta.get("accepts_markdown", True)
+        )
+
+        if accepts_markdown:
+            console.print(
+                f"[dim]{grant_dir.name}: accepts_markdown=true, skipping[/dim]"
+            )
+            continue
+
+        grants_checked += 1
+        console.print(f"[cyan]Checking {grant_dir.name}...[/cyan]")
+
+        # Validate this grant's responses
+        validator = MarkdownContentValidator(accepts_markdown=False)
+
+        # Check multiple possible response locations
+        response_dirs = [
+            grant_dir / "responses" / "full",
+            grant_dir / "responses",
+            grant_dir / "docs" / "responses",
+        ]
+
+        for responses_dir in response_dirs:
+            if responses_dir.exists():
+                result = validator.validate_directory(responses_dir)
+                for violation in result.violations:
+                    errors.append(
+                        (
+                            grant_dir.name,
+                            violation.file_path,
+                            violation.line_number,
+                            violation.message,
+                            violation.line_content,
+                        )
+                    )
+                break
+
+    # Report results
+    console.print()
+    if not grants_checked:
+        console.print("[yellow]No plain-text grants found to validate[/yellow]")
+        console.print(
+            "[dim]Grants with accepts_markdown: true (or unset) are skipped[/dim]"
+        )
+        return
+
+    if not errors:
+        console.print(
+            f"[green]All {grants_checked} plain-text grant(s) passed validation![/green]"
+        )
+        return
+
+    # Show errors grouped by file
+    console.print(f"[red]Found {len(errors)} markdown syntax issues:[/red]\n")
+
+    current_file = None
+    for grant_name, file_path, line_num, message, line_content in errors:
+        file_key = f"{grant_name}/{file_path}"
+        if file_key != current_file:
+            console.print(f"[bold]{file_key}[/bold]")
+            current_file = file_key
+        console.print(f"  Line {line_num}: [red]{message}[/red]")
+        console.print(f"    [dim]{line_content[:80]}...[/dim]" if len(line_content) > 80 else f"    [dim]{line_content}[/dim]")
+
+    console.print(
+        f"\n[yellow]Fix these issues by converting markdown to plain text.[/yellow]"
+    )
+    sys.exit(1)

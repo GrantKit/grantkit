@@ -1,11 +1,13 @@
 """Reference and citation commands for GrantKit."""
 
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 import click
+import yaml
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -16,6 +18,303 @@ from ..core.validator import NSFValidator
 from ..references import BibliographyGenerator, BibTeXManager, CitationExtractor
 
 console = Console()
+
+
+def _format_author_year(entry) -> str:
+    """Format a bibtex entry as (Author, Year) for inline citation."""
+    if not entry:
+        return "(Unknown)"
+
+    # Get first author's last name
+    if entry.authors:
+        first_author = entry.authors[0]
+        # Handle "Last, First" format
+        if "," in first_author:
+            last_name = first_author.split(",")[0].strip()
+        else:
+            # Handle "First Last" format
+            parts = first_author.split()
+            last_name = parts[-1] if parts else first_author
+
+        # Handle institutional authors (already full name)
+        if last_name.startswith("{") or " " in last_name:
+            last_name = last_name.strip("{}")
+    else:
+        last_name = "Unknown"
+
+    year = entry.year or "n.d."
+
+    # Add "et al." for multiple authors
+    if entry.authors and len(entry.authors) > 2:
+        return f"({last_name} et al., {year})"
+    elif entry.authors and len(entry.authors) == 2:
+        # Get second author's last name
+        second_author = entry.authors[1]
+        if "," in second_author:
+            second_last = second_author.split(",")[0].strip()
+        else:
+            parts = second_author.split()
+            second_last = parts[-1] if parts else second_author
+        return f"({last_name} & {second_last}, {year})"
+    else:
+        return f"({last_name}, {year})"
+
+
+def _format_bibliography_entry(entry, style: str = "apa") -> str:
+    """Format a bibtex entry for the bibliography section."""
+    if not entry:
+        return ""
+
+    # Format authors
+    if entry.authors:
+        if len(entry.authors) == 1:
+            authors_str = entry.authors[0]
+        elif len(entry.authors) == 2:
+            authors_str = f"{entry.authors[0]} & {entry.authors[1]}"
+        else:
+            authors_str = ", ".join(entry.authors[:-1]) + f", & {entry.authors[-1]}"
+    else:
+        authors_str = "Unknown"
+
+    year = entry.year or "n.d."
+    title = entry.title or "Untitled"
+
+    # Build citation based on entry type
+    entry_type = entry.entry_type.lower()
+
+    if entry_type == "article":
+        journal = entry.journal or ""
+        volume = entry.volume or ""
+        pages = entry.pages or ""
+
+        citation = f"{authors_str} ({year}). {title}."
+        if journal:
+            citation += f" {journal}"
+            if volume:
+                citation += f", {volume}"
+            if pages:
+                citation += f", {pages}"
+            citation += "."
+    elif entry_type in ("book", "incollection"):
+        publisher = entry.raw_entry.get("publisher", "")
+        citation = f"{authors_str} ({year}). {title}."
+        if publisher:
+            citation += f" {publisher}."
+    elif entry_type in ("techreport", "misc"):
+        institution = entry.raw_entry.get("institution", "")
+        url = entry.url or ""
+        citation = f"{authors_str} ({year}). {title}."
+        if institution:
+            citation += f" {institution}."
+        if url:
+            citation += f" Retrieved from {url}"
+    else:
+        # Default format
+        citation = f"{authors_str} ({year}). {title}."
+        if entry.url:
+            citation += f" Retrieved from {entry.url}"
+
+    return citation
+
+
+def _render_citations_in_file(
+    content: str, bibtex_manager: BibTeXManager
+) -> Tuple[str, List[str], List[str]]:
+    """
+    Replace [@key] citations with (Author, Year) format.
+
+    Returns:
+        Tuple of (rendered_content, used_keys, missing_keys)
+    """
+    used_keys = []
+    missing_keys = []
+
+    # Pattern for pandoc-style citations: [@key] or [@key1; @key2]
+    citation_pattern = r"\[@([^\]]+)\]"
+
+    def replace_citation(match):
+        citation_text = match.group(1)
+        # Handle multiple citations separated by ; or ,
+        keys = [k.strip().lstrip("@") for k in re.split(r"[;,]", citation_text)]
+
+        formatted_citations = []
+        for key in keys:
+            if not key:
+                continue
+
+            entry = bibtex_manager.get_entry(key)
+            if entry:
+                used_keys.append(key)
+                formatted_citations.append(_format_author_year(entry))
+            else:
+                missing_keys.append(key)
+                formatted_citations.append(f"([{key}])")
+
+        # Combine multiple citations
+        if len(formatted_citations) == 1:
+            return formatted_citations[0]
+        else:
+            # Combine like (Smith, 2020; Jones, 2021)
+            inner = "; ".join(c.strip("()") for c in formatted_citations)
+            return f"({inner})"
+
+    rendered = re.sub(citation_pattern, replace_citation, content)
+    return rendered, list(set(used_keys)), list(set(missing_keys))
+
+
+@click.command("render-references")
+@click.option("--grant", "-g", required=True, help="Grant directory to process")
+@click.option("--dry-run", is_flag=True, help="Show what would change without modifying files")
+@click.option("--bibliography-file", "-b", help="Output file for bibliography (default: l_bibliographic_references.md)")
+@click.pass_context
+def render_references(
+    ctx: click.Context,
+    grant: str,
+    dry_run: bool,
+    bibliography_file: Optional[str],
+) -> None:
+    """Render bibtex citations as (Author, Year) and generate bibliography.
+
+    This command:
+    1. Finds all [@key] citations in response files
+    2. Replaces them with (Author, Year) format using references.bib
+    3. Generates the bibliography section
+
+    Example:
+        grantkit render-references -g nuffield-rda-2025-full
+        grantkit render-references -g nuffield-rda-2025-full --dry-run
+    """
+    project_root = ctx.obj["project_root"]
+    grant_dir = project_root / grant
+
+    if not grant_dir.exists():
+        console.print(f"[red]Grant directory not found: {grant_dir}[/red]")
+        sys.exit(1)
+
+    # Load bibtex
+    bibtex_manager = BibTeXManager(grant_dir)
+    bibtex_manager.load_bibliography()
+
+    if not bibtex_manager.entries:
+        console.print("[yellow]No bibliography entries found[/yellow]")
+        console.print("[dim]Create a references.bib file in the grant directory[/dim]")
+        sys.exit(1)
+
+    console.print(f"[green]Loaded {len(bibtex_manager.entries)} bibliography entries[/green]")
+
+    # Find response files
+    response_dirs = [
+        grant_dir / "responses" / "full",
+        grant_dir / "responses",
+        grant_dir / "docs" / "responses",
+    ]
+
+    responses_dir = None
+    for d in response_dirs:
+        if d.exists():
+            responses_dir = d
+            break
+
+    if not responses_dir:
+        console.print("[red]No responses directory found[/red]")
+        sys.exit(1)
+
+    # Process each file
+    all_used_keys = set()
+    all_missing_keys = set()
+    files_modified = 0
+
+    for md_file in sorted(responses_dir.glob("*.md")):
+        content = md_file.read_text(encoding="utf-8")
+
+        # Check if file has citations
+        if "[@" not in content:
+            continue
+
+        rendered, used_keys, missing_keys = _render_citations_in_file(content, bibtex_manager)
+        all_used_keys.update(used_keys)
+        all_missing_keys.update(missing_keys)
+
+        if rendered != content:
+            files_modified += 1
+            console.print(f"[cyan]{md_file.name}[/cyan]: {len(used_keys)} citations rendered")
+
+            if dry_run:
+                # Show diff preview
+                console.print("[dim]  Would replace:[/dim]")
+                for key in used_keys:
+                    entry = bibtex_manager.get_entry(key)
+                    console.print(f"    [@{key}] → {_format_author_year(entry)}")
+            else:
+                md_file.write_text(rendered, encoding="utf-8")
+
+    # Report missing keys
+    if all_missing_keys:
+        console.print(f"\n[red]Missing bibliography entries ({len(all_missing_keys)}):[/red]")
+        for key in sorted(all_missing_keys):
+            console.print(f"  - {key}")
+
+    # Generate bibliography
+    if all_used_keys:
+        console.print(f"\n[bold]Generating bibliography ({len(all_used_keys)} entries)...[/bold]")
+
+        # Sort entries alphabetically by first author
+        sorted_keys = sorted(
+            all_used_keys,
+            key=lambda k: (
+                bibtex_manager.get_entry(k).authors[0].split(",")[0].lower()
+                if bibtex_manager.get_entry(k) and bibtex_manager.get_entry(k).authors
+                else k.lower()
+            ),
+        )
+
+        # Generate bibliography content
+        bib_lines = []
+        for key in sorted_keys:
+            entry = bibtex_manager.get_entry(key)
+            if entry:
+                bib_lines.append(_format_bibliography_entry(entry))
+
+        bibliography_content = "\n\n".join(bib_lines)
+
+        # Determine output file
+        if bibliography_file:
+            bib_path = responses_dir / bibliography_file
+        else:
+            # Look for existing bibliography file in grant.yaml
+            grant_yaml = grant_dir / "grant.yaml"
+            bib_path = responses_dir / "l_bibliographic_references.md"
+
+            if grant_yaml.exists():
+                with open(grant_yaml) as f:
+                    grant_meta = yaml.safe_load(f) or {}
+                full_app = grant_meta.get("full_application", {})
+                sections = full_app.get("sections", grant_meta.get("sections", []))
+                for section in sections:
+                    if "bibliograph" in section.get("id", "").lower() or "reference" in section.get("id", "").lower():
+                        bib_path = grant_dir / section.get("file", "responses/l_bibliographic_references.md")
+                        break
+
+        if dry_run:
+            console.print(f"\n[dim]Would write bibliography to: {bib_path}[/dim]")
+            console.print("[dim]Preview:[/dim]")
+            for line in bibliography_content.split("\n\n")[:5]:
+                console.print(f"  {line[:100]}...")
+            if len(sorted_keys) > 5:
+                console.print(f"  ... and {len(sorted_keys) - 5} more entries")
+        else:
+            bib_path.write_text(bibliography_content, encoding="utf-8")
+            console.print(f"[green]Bibliography written to: {bib_path}[/green]")
+
+    # Summary
+    console.print()
+    if dry_run:
+        console.print(f"[yellow]Dry run complete. Would modify {files_modified} files.[/yellow]")
+    else:
+        console.print(f"[green]Rendered citations in {files_modified} files.[/green]")
+
+    if all_missing_keys:
+        sys.exit(1)
 
 
 @click.command()

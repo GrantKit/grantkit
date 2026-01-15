@@ -13,6 +13,7 @@ from supabase import Client, create_client
 
 from .auth import get_authenticated_client, get_current_user_id, is_logged_in
 from .budget.calculator import BudgetCalculator
+from .references.bibtex_manager import BibTeXManager
 
 logger = logging.getLogger(__name__)
 
@@ -318,6 +319,174 @@ class GrantKitSync:
 
         return budget_data
 
+    def _auto_generate_bibliography(
+        self, grant_dir: Path, grant_meta: Dict[str, Any]
+    ) -> bool:
+        """
+        Auto-generate bibliography section from used citations.
+
+        Scans all response files for [@key] citations, looks up entries
+        in references.bib, and generates the bibliography file.
+
+        Args:
+            grant_dir: Path to grant directory
+            grant_meta: Parsed grant.yaml metadata
+
+        Returns:
+            True if bibliography was generated, False otherwise
+        """
+        import re
+
+        # Find bibliography section with auto_generate: true
+        sections = grant_meta.get("full_application", {}).get(
+            "sections", grant_meta.get("sections", [])
+        )
+
+        bib_section = None
+        for section in sections:
+            if section.get("auto_generate") and section.get("type") == "bibliography":
+                bib_section = section
+                break
+
+        if not bib_section:
+            return False
+
+        # Load bibtex
+        bib_manager = BibTeXManager(grant_dir)
+        bib_manager.load_bibliography()
+
+        if not bib_manager.entries:
+            logger.warning("No bibliography entries found for auto-generation")
+            return False
+
+        # Find all response files
+        response_dirs = [
+            grant_dir / "responses" / "full",
+            grant_dir / "responses",
+            grant_dir / "docs" / "responses",
+        ]
+
+        responses_dir = None
+        for d in response_dirs:
+            if d.exists():
+                responses_dir = d
+                break
+
+        if not responses_dir:
+            return False
+
+        # Scan for citations
+        used_keys = set()
+        citation_pattern = re.compile(r"\[@([^\]]+)\]")
+
+        bib_file_path = grant_dir / bib_section.get("file", "")
+
+        for md_file in responses_dir.glob("*.md"):
+            # Skip the bibliography file itself
+            if md_file.resolve() == bib_file_path.resolve():
+                continue
+
+            content = md_file.read_text(encoding="utf-8")
+            for match in citation_pattern.finditer(content):
+                citation_text = match.group(1)
+                # Handle multiple citations: [@key1; @key2]
+                keys = [k.strip().lstrip("@") for k in re.split(r"[;,]", citation_text)]
+                used_keys.update(k for k in keys if k)
+
+        if not used_keys:
+            logger.info("No citations found in response files")
+            return False
+
+        # Sort entries alphabetically by first author
+        def get_sort_key(key):
+            entry = bib_manager.get_entry(key)
+            if entry and entry.authors:
+                first_author = entry.authors[0]
+                if "," in first_author:
+                    return first_author.split(",")[0].lower()
+                parts = first_author.split()
+                return parts[-1].lower() if parts else key.lower()
+            return key.lower()
+
+        sorted_keys = sorted(used_keys, key=get_sort_key)
+
+        # Group entries by category (based on bibtex comments)
+        # For now, generate a flat list
+        bib_lines = []
+
+        for key in sorted_keys:
+            entry = bib_manager.get_entry(key)
+            if not entry:
+                logger.warning(f"Citation key '{key}' not found in bibliography")
+                continue
+
+            # Format entry
+            formatted = self._format_bibliography_entry(entry)
+            bib_lines.append(formatted)
+
+        # Write bibliography file
+        output_path = grant_dir / bib_section["file"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        content = "\n\n".join(bib_lines)
+        output_path.write_text(content, encoding="utf-8")
+
+        logger.info(
+            f"Generated bibliography with {len(bib_lines)} entries at {output_path}"
+        )
+        return True
+
+    def _format_bibliography_entry(self, entry) -> str:
+        """Format a BibEntry as a plain-text citation for bibliography."""
+        # Format authors
+        if entry.authors:
+            if len(entry.authors) == 1:
+                authors_str = entry.authors[0]
+            elif len(entry.authors) == 2:
+                authors_str = f"{entry.authors[0]} & {entry.authors[1]}"
+            else:
+                authors_str = ", ".join(entry.authors[:-1]) + f", & {entry.authors[-1]}"
+        else:
+            authors_str = "Unknown"
+
+        year = entry.year or "n.d."
+        title = entry.title or "Untitled"
+        entry_type = entry.entry_type.lower()
+
+        # Build citation based on entry type
+        if entry_type == "article":
+            journal = entry.journal or ""
+            volume = entry.volume or ""
+            pages = entry.pages or ""
+
+            citation = f"{authors_str} ({year}). {title}."
+            if journal:
+                citation += f" {journal}"
+                if volume:
+                    citation += f", {volume}"
+                if pages:
+                    citation += f", {pages}"
+                citation += "."
+        elif entry_type in ("book", "incollection"):
+            publisher = entry.raw_entry.get("publisher", "")
+            citation = f"{authors_str} ({year}). {title}."
+            if publisher:
+                citation += f" {publisher}."
+        elif entry_type in ("techreport", "misc"):
+            institution = entry.raw_entry.get("institution", "")
+            url = entry.url or ""
+            citation = f"{authors_str} ({year}). {title}."
+            if institution:
+                citation += f" {institution}."
+            if url:
+                citation += f" Retrieved from {url}"
+        else:
+            citation = f"{authors_str} ({year}). {title}."
+            if entry.url:
+                citation += f" Retrieved from {entry.url}"
+
+        return citation
+
     def push(self, grant_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Push local files to Supabase.
@@ -367,6 +536,11 @@ class GrantKitSync:
             if user_id:
                 db_record["user_id"] = user_id
 
+            # Auto-generate bibliography if configured
+            bib_generated = self._auto_generate_bibliography(grant_dir, grant_meta)
+            if bib_generated:
+                stats["bibliography_generated"] = True
+
             # Upsert grant
             try:
                 self.client.table("grants").upsert(
@@ -381,6 +555,19 @@ class GrantKitSync:
                 logger.error(f"Failed to push grant {grant_dir.name}: {e}")
                 continue
 
+            # Build section lookup for word_limit/char_limit/sort_order
+            sections = grant_meta.get("full_application", {}).get(
+                "sections", grant_meta.get("sections", [])
+            )
+            section_by_file = {}
+            for idx, section in enumerate(sections):
+                if section.get("file"):
+                    # Map file path to section metadata with order
+                    section_by_file[section["file"]] = {
+                        **section,
+                        "_sort_order": idx,  # 0-based index from grant.yaml
+                    }
+
             # Push responses - check multiple possible locations
             response_dirs_to_check = [
                 grant_dir / "responses" / "full",  # Nuffield-style: responses/full/
@@ -388,25 +575,261 @@ class GrantKitSync:
                 grant_dir / "docs" / "responses",  # PolicyEngine-style: docs/responses/
             ]
 
-            for responses_dir in response_dirs_to_check:
-                if responses_dir.exists():
-                    for md_file in responses_dir.glob("*.md"):
-                        try:
-                            response_data = self._parse_response_file(
-                                md_file, db_record["id"]
-                            )
-                            self.client.table("responses").upsert(
-                                response_data, on_conflict="grant_id,key"
-                            ).execute()
-                            stats["responses"] += 1
-                        except Exception as e:
-                            stats["errors"].append(f"Response {md_file.name}: {e}")
-                            logger.error(
-                                f"Failed to push response {md_file.name}: {e}"
-                            )
-                    break  # Stop after finding first valid responses dir
+            responses_dir = next(
+                (d for d in response_dirs_to_check if d.exists()), None
+            )
+            if responses_dir:
+                sort_order_supported = True
+                for md_file in responses_dir.glob("*.md"):
+                    response_data = self._parse_response_file(md_file, db_record["id"])
+
+                    # Merge section metadata (word_limit, char_limit, question, sort_order)
+                    relative_path = md_file.relative_to(grant_dir)
+                    section_meta = section_by_file.get(str(relative_path), {})
+                    for field in ("word_limit", "char_limit", "question"):
+                        if section_meta.get(field) and not response_data.get(field):
+                            response_data[field] = section_meta[field]
+                    if "_sort_order" in section_meta and sort_order_supported:
+                        response_data["sort_order"] = section_meta["_sort_order"]
+
+                    success, sort_order_supported = self._upsert_response(
+                        response_data, md_file.name, stats, sort_order_supported
+                    )
+
+            # Push bibliography entries if references.bib exists
+            bib_stats = self._sync_bibliography(grant_dir, db_record["id"])
+            if bib_stats:
+                stats["bibliography_entries"] = (
+                    stats.get("bibliography_entries", 0) + bib_stats["entries"]
+                )
 
         return stats
+
+    def _upsert_response(
+        self,
+        response_data: Dict[str, Any],
+        filename: str,
+        stats: Dict[str, Any],
+        sort_order_supported: bool,
+    ) -> tuple[bool, bool]:
+        """
+        Upsert a response to the database, handling sort_order column gracefully.
+
+        Args:
+            response_data: Response data to upsert
+            filename: Filename for error messages
+            stats: Stats dict to update
+            sort_order_supported: Whether sort_order column is known to exist
+
+        Returns:
+            Tuple of (success, sort_order_supported)
+        """
+        try:
+            self.client.table("responses").upsert(
+                response_data, on_conflict="grant_id,key"
+            ).execute()
+            stats["responses"] += 1
+            return True, sort_order_supported
+        except Exception as e:
+            error_str = str(e)
+            # Check if sort_order column doesn't exist
+            if (
+                "sort_order" in error_str
+                and ("PGRST204" in error_str or "could not find" in error_str.lower())
+            ):
+                # Retry without sort_order
+                response_data.pop("sort_order", None)
+                try:
+                    self.client.table("responses").upsert(
+                        response_data, on_conflict="grant_id,key"
+                    ).execute()
+                    stats["responses"] += 1
+                    logger.debug(
+                        "sort_order column not found, syncing without it. "
+                        "Run migration to enable response ordering."
+                    )
+                    return True, False  # Mark sort_order as unsupported
+                except Exception as retry_e:
+                    stats["errors"].append(f"Response {filename}: {retry_e}")
+                    logger.error(f"Failed to push response {filename}: {retry_e}")
+                    return False, False
+            else:
+                stats["errors"].append(f"Response {filename}: {e}")
+                logger.error(f"Failed to push response {filename}: {e}")
+                return False, sort_order_supported
+
+    def _sync_bibliography(
+        self, grant_dir: Path, grant_id: str
+    ) -> Optional[Dict[str, int]]:
+        """
+        Sync references.bib to bibliography_entries table.
+
+        Args:
+            grant_dir: Path to grant directory
+            grant_id: Grant ID for database
+
+        Returns:
+            Dict with sync stats, or None if no .bib file found or table doesn't exist
+        """
+        # Look for .bib files in common locations
+        bib_locations = [
+            grant_dir / "references.bib",
+            grant_dir / "bibliography.bib",
+            grant_dir / "refs.bib",
+        ]
+
+        bib_file = next((loc for loc in bib_locations if loc.exists()), None)
+        if not bib_file:
+            return None
+
+        try:
+            # Parse bibtex using existing manager
+            bib_manager = BibTeXManager(grant_dir)
+            bib_manager.load_bibliography(bib_file)
+
+            if not bib_manager.entries:
+                logger.info(f"No entries found in {bib_file.name}")
+                return {"entries": 0}
+
+            # Calculate display_year with letter suffixes for disambiguation
+            display_years = self._calculate_display_years(bib_manager.entries)
+
+            entries_synced = 0
+            display_year_supported = True  # Assume supported until proven otherwise
+
+            for key, entry in bib_manager.entries.items():
+                db_entry = {
+                    "grant_id": grant_id,
+                    "citation_key": key,
+                    "entry_type": entry.entry_type,
+                    "title": entry.title or "Untitled",
+                    "authors": entry.authors or None,
+                    "year": entry.year,
+                    "journal": entry.journal or None,
+                    "volume": entry.volume,
+                    "pages": entry.pages,
+                    "publisher": entry.raw_entry.get("publisher"),
+                    "institution": entry.raw_entry.get("institution"),
+                    "url": entry.url,
+                    "doi": entry.doi,
+                    "raw_bibtex": self._entry_to_bibtex(entry),
+                }
+
+                # Add display_year if column exists
+                if display_year_supported:
+                    db_entry["display_year"] = display_years.get(key, entry.year)
+
+                # Remove None values
+                db_entry = {k: v for k, v in db_entry.items() if v is not None}
+
+                try:
+                    self.client.table("bibliography_entries").upsert(
+                        db_entry, on_conflict="grant_id,citation_key"
+                    ).execute()
+                    entries_synced += 1
+                except Exception as e:
+                    error_str = str(e)
+                    # Table doesn't exist - log once and return early
+                    if "404" in error_str or "does not exist" in error_str.lower():
+                        logger.debug(
+                            "bibliography_entries table not found, skipping sync. "
+                            "Run migration to enable this feature."
+                        )
+                        return None
+                    # display_year column doesn't exist - retry without it
+                    if "display_year" in error_str and "PGRST204" in error_str:
+                        display_year_supported = False
+                        db_entry.pop("display_year", None)
+                        try:
+                            self.client.table("bibliography_entries").upsert(
+                                db_entry, on_conflict="grant_id,citation_key"
+                            ).execute()
+                            entries_synced += 1
+                            continue
+                        except Exception as retry_e:
+                            logger.error(f"Failed to sync bibliography entry {key}: {retry_e}")
+                            continue
+                    logger.error(f"Failed to sync bibliography entry {key}: {e}")
+
+            if entries_synced > 0:
+                logger.info(
+                    f"Synced {entries_synced} bibliography entries from {bib_file.name}"
+                )
+            return {"entries": entries_synced}
+
+        except Exception as e:
+            logger.error(f"Failed to sync bibliography from {bib_file}: {e}")
+            return None
+
+    def _calculate_display_years(
+        self, entries: Dict[str, Any]
+    ) -> Dict[str, str]:
+        """
+        Calculate display years with letter suffixes for disambiguation.
+
+        When multiple entries share the same first author and year,
+        adds letter suffixes (a, b, c...) to distinguish them.
+
+        Args:
+            entries: Dict of citation_key -> BibEntry
+
+        Returns:
+            Dict of citation_key -> display_year (e.g., "2025a")
+        """
+        from collections import defaultdict
+
+        # Group entries by (first_author, year)
+        author_year_groups = defaultdict(list)
+        for key, entry in entries.items():
+            # Get first author (normalized for grouping)
+            first_author = ""
+            if entry.authors:
+                first_author = entry.authors[0].lower().strip()
+                # Handle corporate authors - use full name
+                # Handle "Last, First" format - extract last name
+                if "," in first_author:
+                    first_author = first_author.split(",")[0].strip()
+
+            year = entry.year or ""
+            author_year_groups[(first_author, year)].append(key)
+
+        # Build display_year dict
+        display_years = {}
+        for (first_author, year), keys in author_year_groups.items():
+            if len(keys) <= 1:
+                # No disambiguation needed
+                for key in keys:
+                    display_years[key] = year
+            else:
+                # Sort keys for consistent ordering (alphabetically by citation key)
+                sorted_keys = sorted(keys)
+                for i, key in enumerate(sorted_keys):
+                    letter = chr(ord("a") + i)  # a, b, c, ...
+                    display_years[key] = f"{year}{letter}"
+
+        return display_years
+
+    def _entry_to_bibtex(self, entry) -> str:
+        """Convert a BibEntry back to bibtex format for storage."""
+        lines = [f"@{entry.entry_type}{{{entry.key},"]
+        if entry.title:
+            lines.append(f"  title = {{{entry.title}}},")
+        if entry.authors:
+            lines.append(f"  author = {{{' and '.join(entry.authors)}}},")
+        if entry.year:
+            lines.append(f"  year = {{{entry.year}}},")
+        if entry.journal:
+            lines.append(f"  journal = {{{entry.journal}}},")
+        if entry.volume:
+            lines.append(f"  volume = {{{entry.volume}}},")
+        if entry.pages:
+            lines.append(f"  pages = {{{entry.pages}}},")
+        if entry.doi:
+            lines.append(f"  doi = {{{entry.doi}}},")
+        if entry.url:
+            lines.append(f"  url = {{{entry.url}}},")
+        lines.append("}")
+        return "\n".join(lines)
 
     def _parse_response_file(
         self, filepath: Path, grant_id: str
