@@ -17,7 +17,7 @@ from .budget.calculator import BudgetCalculator
 logger = logging.getLogger(__name__)
 
 # Default Supabase config (can be overridden via env vars or config file)
-DEFAULT_SUPABASE_URL = "https://jgrvjvqhrngcdmtrojlk.supabase.co"
+DEFAULT_SUPABASE_URL = "https://bmfssahcufqykfagvgtm.supabase.co"
 
 
 @dataclass
@@ -200,6 +200,7 @@ class GrantKitSync:
         "sustainability",
         "budget",
         "user_id",
+        "accepts_markdown",
     }
 
     def _normalize_grant_yaml(
@@ -373,27 +374,30 @@ class GrantKitSync:
                 logger.error(f"Failed to push grant {grant_dir.name}: {e}")
                 continue
 
-            # Push responses
-            responses_dir = grant_dir / "responses"
-            # Also check docs/responses for PolicyEngine-style layout
-            if not responses_dir.exists():
-                responses_dir = grant_dir / "docs" / "responses"
+            # Push responses - check multiple possible locations
+            response_dirs_to_check = [
+                grant_dir / "responses" / "full",  # Nuffield-style: responses/full/
+                grant_dir / "responses",  # Simple layout: responses/
+                grant_dir / "docs" / "responses",  # PolicyEngine-style: docs/responses/
+            ]
 
-            if responses_dir.exists():
-                for md_file in responses_dir.glob("*.md"):
-                    try:
-                        response_data = self._parse_response_file(
-                            md_file, db_record["id"]
-                        )
-                        self.client.table("responses").upsert(
-                            response_data, on_conflict="grant_id,key"
-                        ).execute()
-                        stats["responses"] += 1
-                    except Exception as e:
-                        stats["errors"].append(f"Response {md_file.name}: {e}")
-                        logger.error(
-                            f"Failed to push response {md_file.name}: {e}"
-                        )
+            for responses_dir in response_dirs_to_check:
+                if responses_dir.exists():
+                    for md_file in responses_dir.glob("*.md"):
+                        try:
+                            response_data = self._parse_response_file(
+                                md_file, db_record["id"]
+                            )
+                            self.client.table("responses").upsert(
+                                response_data, on_conflict="grant_id,key"
+                            ).execute()
+                            stats["responses"] += 1
+                        except Exception as e:
+                            stats["errors"].append(f"Response {md_file.name}: {e}")
+                            logger.error(
+                                f"Failed to push response {md_file.name}: {e}"
+                            )
+                    break  # Stop after finding first valid responses dir
 
         return stats
 
@@ -509,6 +513,161 @@ class GrantKitSync:
             logger.info("Watch stopped.")
 
         observer.join()
+
+    def share(
+        self, grant_id: str, email: str, role: str = "editor"
+    ) -> Dict[str, Any]:
+        """
+        Share a grant with another user.
+
+        Args:
+            grant_id: The grant ID to share.
+            email: The collaborator's email address.
+            role: Permission level ('viewer' or 'editor').
+
+        Returns:
+            Dict with 'success' and optional 'error' message.
+        """
+        try:
+            # First verify the grant exists and current user owns it
+            grant_result = (
+                self.client.table("grants")
+                .select("id, user_id")
+                .eq("id", grant_id)
+                .execute()
+            )
+
+            if not grant_result.data:
+                return {"success": False, "error": f"Grant '{grant_id}' not found"}
+
+            # Look up user by email in profiles table
+            # Note: email might be stored differently, try both exact and ilike match
+            user_lookup = (
+                self.client.table("profiles")
+                .select("id, email")
+                .ilike("email", email)
+                .execute()
+            )
+
+            if not user_lookup.data:
+                return {
+                    "success": False,
+                    "error": f"User with email '{email}' not found. "
+                    "They must create an account first.",
+                }
+
+            target_user = user_lookup.data[0]
+            target_user_id = target_user["id"]
+
+            # Check if already a collaborator
+            existing = (
+                self.client.table("grant_collaborators")
+                .select("id, role")
+                .eq("grant_id", grant_id)
+                .eq("user_id", target_user_id)
+                .execute()
+            )
+
+            if existing.data:
+                # Update existing collaboration
+                self.client.table("grant_collaborators").update(
+                    {"role": role}
+                ).eq("grant_id", grant_id).eq("user_id", target_user_id).execute()
+                return {
+                    "success": True,
+                    "message": f"Updated {email}'s role to {role}",
+                }
+
+            # Insert new collaborator
+            self.client.table("grant_collaborators").insert(
+                {
+                    "grant_id": grant_id,
+                    "user_id": target_user_id,
+                    "user_email": email,
+                    "role": role,
+                }
+            ).execute()
+
+            logger.info(f"Shared grant '{grant_id}' with {email} as {role}")
+            return {"success": True}
+
+        except Exception as e:
+            logger.error(f"Failed to share grant: {e}")
+            return {"success": False, "error": str(e)}
+
+    def unshare(self, grant_id: str, email: str) -> Dict[str, Any]:
+        """
+        Remove a collaborator from a grant.
+
+        Args:
+            grant_id: The grant ID.
+            email: The collaborator's email to remove.
+
+        Returns:
+            Dict with 'success' and optional 'error' message.
+        """
+        try:
+            # Look up user by email
+            user_lookup = self.client.rpc(
+                "get_user_id_by_email", {"lookup_email": email}
+            ).execute()
+
+            if not user_lookup.data:
+                return {
+                    "success": False,
+                    "error": f"User with email '{email}' not found",
+                }
+
+            target_user_id = user_lookup.data[0]["user_id"]
+
+            # Delete the collaboration
+            result = (
+                self.client.table("grant_collaborators")
+                .delete()
+                .eq("grant_id", grant_id)
+                .eq("user_id", target_user_id)
+                .execute()
+            )
+
+            if not result.data:
+                return {
+                    "success": False,
+                    "error": f"{email} is not a collaborator on '{grant_id}'",
+                }
+
+            logger.info(f"Removed {email} from grant '{grant_id}'")
+            return {"success": True}
+
+        except Exception as e:
+            logger.error(f"Failed to unshare grant: {e}")
+            return {"success": False, "error": str(e)}
+
+    def list_collaborators(self, grant_id: str) -> Dict[str, Any]:
+        """
+        List all collaborators for a grant.
+
+        Args:
+            grant_id: The grant ID.
+
+        Returns:
+            Dict with 'success', 'collaborators' list, and optional 'error'.
+        """
+        try:
+            result = (
+                self.client.table("grant_collaborators")
+                .select("user_email, role, created_at")
+                .eq("grant_id", grant_id)
+                .execute()
+            )
+
+            return {
+                "success": True,
+                "collaborators": result.data or [],
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to list collaborators: {e}")
+            return {"success": False, "error": str(e), "collaborators": []}
 
 
 def get_sync_client(grants_dir: Path) -> GrantKitSync:
