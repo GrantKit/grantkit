@@ -45,7 +45,12 @@ class ValidationResult:
 
 
 class NSFValidator:
-    """NSF-specific compliance validator for grant proposals."""
+    """NSF-specific compliance validator for grant proposals.
+
+    Note: Despite the name, this validator can be used for non-NSF grants
+    with reduced restrictions. Set is_nsf_grant=False in __init__ to skip
+    NSF-specific URL restrictions (e.g., YouTube is allowed for non-NSF grants).
+    """
 
     # NSF PAPPG 24-1 prohibited elements - comprehensive list
     PROHIBITED_URLS = [
@@ -152,22 +157,90 @@ class NSFValidator:
     REQUIRED_MARGINS = 1.0  # inches - PAPPG 24-1 II.C.2.d.i.(c)
     MAX_LINES_PER_INCH = 6.0  # PAPPG 24-1 II.C.2.d.i.(b)
 
+    # URLs that are only prohibited for NSF grants (not general restrictions)
+    NSF_ONLY_PROHIBITED_URLS = [
+        "youtube.com",
+        "facebook.com",
+        "twitter.com",
+        "linkedin.com",
+        "instagram.com",
+        "tiktok.com",
+        "snapchat.com",
+        "wordpress.com",
+        "blogger.com",
+        "tumblr.com",
+        "medium.com",
+        "squarespace.com",
+        "wix.com",
+        "weebly.com",
+    ]
+
     def __init__(
         self,
         project_root: Optional[Any] = None,
         program_config: Optional[Dict[str, Any]] = None,
+        is_nsf_grant: Optional[bool] = None,
     ):
         """Initialize validator with program-specific configuration.
 
         Args:
             project_root: Path to project root (for file-based validation)
             program_config: Program-specific configuration dict
+            is_nsf_grant: Whether this is an NSF grant. If None, auto-detect from grant.yaml.
+                          Non-NSF grants skip NSF-specific URL restrictions.
         """
         from pathlib import Path
 
         self.project_root = Path(project_root) if project_root else None
         self.program_config = program_config or {}
         self.issues: List[ValidationIssue] = []
+
+        # Auto-detect if this is an NSF grant from grant.yaml
+        if is_nsf_grant is None:
+            self.is_nsf_grant = self._detect_nsf_grant()
+        else:
+            self.is_nsf_grant = is_nsf_grant
+
+    def _detect_nsf_grant(self) -> bool:
+        """Detect if this is an NSF grant by checking grant.yaml.
+
+        Checks the grant.yaml in the project root first, then falls back
+        to searching subdirectories if not found.
+        """
+        if not self.project_root:
+            return True  # Default to strict NSF rules if no project root
+
+        import yaml
+
+        # First check for grant.yaml directly in project root
+        direct_grant = self.project_root / "grant.yaml"
+        if direct_grant.exists():
+            try:
+                with open(direct_grant) as f:
+                    grant_meta = yaml.safe_load(f) or {}
+                foundation = grant_meta.get("foundation", "").lower()
+                # Return True only if this specific grant is NSF
+                return "nsf" in foundation or "national science foundation" in foundation
+            except Exception:
+                pass
+
+        # Fall back to searching subdirectories (for multi-grant repos)
+        grant_files = list(self.project_root.glob("**/grant.yaml"))
+        if not grant_files:
+            return True  # Default to strict if no grant.yaml found
+
+        # If there are multiple grants, check if ANY are NSF (conservative)
+        for grant_file in grant_files:
+            try:
+                with open(grant_file) as f:
+                    grant_meta = yaml.safe_load(f) or {}
+                foundation = grant_meta.get("foundation", "").lower()
+                if "nsf" in foundation or "national science foundation" in foundation:
+                    return True
+            except Exception:
+                pass
+
+        return False
 
     def validate(self) -> ValidationResult:
         """Validate all proposal files in the project.
@@ -377,9 +450,14 @@ class NSFValidator:
             # Check URLs in references - still prohibit cloud storage but allow academic URLs
             url_matches = re.findall(r'https?://[^\s<>"]+', line)
             for url in url_matches:
+                # Filter out NSF-only restrictions for non-NSF grants
+                applicable_prohibited = [
+                    p for p in self.PROHIBITED_URLS
+                    if self.is_nsf_grant or p not in self.NSF_ONLY_PROHIBITED_URLS
+                ]
                 if any(
                     prohibited in url.lower()
-                    for prohibited in self.PROHIBITED_URLS
+                    for prohibited in applicable_prohibited
                 ):
                     service = self._identify_prohibited_service(url)
                     self.issues.append(
@@ -491,24 +569,25 @@ class NSFValidator:
                 )
             )
 
-        # Check for common required elements
-        required_elements = [
-            ("intellectual merit", r"intellectual\s+merit"),
-            ("broader impacts", r"broader\s+impacts?"),
-        ]
+        # Check for NSF-specific required elements (only for NSF grants)
+        if self.is_nsf_grant:
+            required_elements = [
+                ("intellectual merit", r"intellectual\s+merit"),
+                ("broader impacts", r"broader\s+impacts?"),
+            ]
 
-        content_lower = content.lower()
-        for element_name, pattern in required_elements:
-            if not re.search(pattern, content_lower):
-                self.issues.append(
-                    ValidationIssue(
-                        severity="warning",
-                        category="content",
-                        message=f"'{element_name}' section not clearly identified",
-                        suggestion=f"Ensure {element_name} is explicitly addressed",
-                        rule="PAPPG II.C.2.d.i",
+            content_lower = content.lower()
+            for element_name, pattern in required_elements:
+                if not re.search(pattern, content_lower):
+                    self.issues.append(
+                        ValidationIssue(
+                            severity="warning",
+                            category="content",
+                            message=f"'{element_name}' section not clearly identified",
+                            suggestion=f"Ensure {element_name} is explicitly addressed",
+                            rule="PAPPG II.C.2.d.i",
+                        )
                     )
-                )
 
     def _check_section_structure(self, content: str) -> None:
         """Check document structure and organization."""
@@ -651,6 +730,10 @@ class NSFValidator:
 
         # Check if explicitly prohibited
         for prohibited_domain in self.PROHIBITED_URLS:
+            # Skip NSF-only restrictions for non-NSF grants
+            if not self.is_nsf_grant and prohibited_domain in self.NSF_ONLY_PROHIBITED_URLS:
+                continue
+
             if prohibited_domain in url_lower:
                 service = self._identify_prohibited_service(url)
                 return {
@@ -749,6 +832,8 @@ class NSFValidator:
         This is stricter than general proposal validation - ALL URLs are errors,
         not just prohibited cloud storage links.
 
+        For non-NSF grants, this runs standard validation instead.
+
         Args:
             content: The project description content to validate
 
@@ -756,6 +841,10 @@ class NSFValidator:
             ValidationResult with all issues found
         """
         self.issues = []
+
+        # For non-NSF grants, just run standard validation
+        if not self.is_nsf_grant:
+            return self.validate_proposal(content)
 
         lines = content.split("\n")
 

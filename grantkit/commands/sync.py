@@ -9,6 +9,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from ..auth import is_logged_in
+from ..core.markdown_validator import MarkdownContentValidator
 from ..core.validator import NSFValidator
 
 console = Console()
@@ -61,6 +62,71 @@ def pull(ctx: click.Context, grant: Optional[str]) -> None:
         sys.exit(1)
 
 
+def _validate_markdown_content(
+    project_root, grant_filter: Optional[str] = None
+) -> list:
+    """
+    Validate markdown content in grants that don't accept markdown.
+
+    Returns list of error messages for violations found.
+    """
+    from pathlib import Path
+
+    import yaml
+
+    errors = []
+
+    # Find grant directories
+    if grant_filter:
+        grant_dirs = [project_root / grant_filter]
+    else:
+        grant_dirs = [
+            d
+            for d in project_root.iterdir()
+            if d.is_dir() and (d / "grant.yaml").exists()
+        ]
+
+    for grant_dir in grant_dirs:
+        grant_yaml = grant_dir / "grant.yaml"
+        if not grant_yaml.exists():
+            continue
+
+        # Check if grant accepts markdown
+        with open(grant_yaml) as f:
+            grant_meta = yaml.safe_load(f) or {}
+
+        # Check in full_application (Nuffield-style) or top-level
+        full_app = grant_meta.get("full_application", {})
+        accepts_markdown = full_app.get(
+            "accepts_markdown", grant_meta.get("accepts_markdown", True)
+        )
+
+        if accepts_markdown:
+            continue  # Skip grants that accept markdown
+
+        # Validate this grant's responses
+        validator = MarkdownContentValidator(accepts_markdown=False)
+
+        # Check multiple possible response locations
+        response_dirs = [
+            grant_dir / "responses" / "full",
+            grant_dir / "responses",
+            grant_dir / "docs" / "responses",
+        ]
+
+        for responses_dir in response_dirs:
+            if responses_dir.exists():
+                result = validator.validate_directory(responses_dir)
+                for violation in result.violations:
+                    errors.append(
+                        f"{grant_dir.name}/{violation.file_path}:{violation.line_number} "
+                        f"- {violation.message}"
+                    )
+                break
+
+    return errors
+
+
 @sync.command()
 @click.option("--grant", "-g", help="Specific grant ID to push (default: all)")
 @click.option(
@@ -79,7 +145,10 @@ def push(ctx: click.Context, grant: Optional[str], validate: bool) -> None:
         # Optionally validate first
         if validate:
             console.print("[dim]Running validation...[/dim]")
-            validator = NSFValidator(project_root)
+
+            # Run NSF validation - use grant-specific path if -g flag provided
+            validation_root = project_root / grant if grant else project_root
+            validator = NSFValidator(validation_root)
             result = validator.validate()
 
             if not result.passed:
@@ -89,6 +158,22 @@ def push(ctx: click.Context, grant: Optional[str], validate: bool) -> None:
                 for issue in result.issues:
                     if issue.severity == "error":
                         console.print(f"   [red]- {issue.message}[/red]")
+                if not click.confirm("Continue with push anyway?"):
+                    console.print("[red]Push cancelled.[/red]")
+                    return
+
+            # Run markdown content validation for grants that don't accept markdown
+            markdown_errors = _validate_markdown_content(project_root, grant)
+            if markdown_errors:
+                console.print(
+                    f"\n[yellow]Found markdown syntax in plain-text grant(s):[/yellow]"
+                )
+                for error in markdown_errors[:10]:  # Show first 10
+                    console.print(f"   [red]- {error}[/red]")
+                if len(markdown_errors) > 10:
+                    console.print(
+                        f"   [dim]... and {len(markdown_errors) - 10} more[/dim]"
+                    )
                 if not click.confirm("Continue with push anyway?"):
                     console.print("[red]Push cancelled.[/red]")
                     return
@@ -108,6 +193,10 @@ def push(ctx: click.Context, grant: Optional[str], validate: bool) -> None:
         console.print("\n[green]Push complete![/green]")
         console.print(f"   Grants: {stats['grants']}")
         console.print(f"   Responses: {stats['responses']}")
+        if stats.get("bibliography_entries"):
+            console.print(f"   Bibliography entries: {stats['bibliography_entries']}")
+        if stats.get("bibliography_generated"):
+            console.print("   [cyan]Bibliography auto-generated from citations[/cyan]")
 
         if stats["errors"]:
             console.print(
