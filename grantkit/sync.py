@@ -282,10 +282,21 @@ class GrantKitSync:
         if not budget_yaml.exists():
             return None
 
-        # Calculate budget totals
-        calculator = BudgetCalculator(budget_yaml)
-        summary = calculator.get_summary()
-        total = summary["grand_total"]
+        # Read budget.yaml first to check format
+        with open(budget_yaml) as f:
+            budget_data = yaml.safe_load(f)
+
+        # Check if this is a simple format with pre-calculated totals
+        # (e.g., Nuffield-style) vs NSF format with line items
+        if "totals" in budget_data and "grand_total" in budget_data["totals"]:
+            # Use pre-calculated total from budget.yaml
+            total = budget_data["totals"]["grand_total"]
+            summary = budget_data.get("totals", {})
+        else:
+            # Calculate budget totals using NSF-style calculator
+            calculator = BudgetCalculator(budget_yaml)
+            summary = calculator.get_summary()
+            total = summary["grand_total"]
 
         # Read current grant.yaml
         with open(grant_yaml) as f:
@@ -302,11 +313,7 @@ class GrantKitSync:
         with open(grant_yaml, "w") as f:
             yaml.dump(grant_meta, f, default_flow_style=False, sort_keys=False)
 
-        # Read full budget.yaml for JSONB storage
-        with open(budget_yaml) as f:
-            budget_data = yaml.safe_load(f)
-
-        # Add calculated summary to budget data
+        # Add calculated summary to budget data for JSONB storage
         budget_data["summary"] = summary
 
         return budget_data
