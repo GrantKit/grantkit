@@ -47,8 +47,17 @@ class SyncConfig:
     @classmethod
     def from_file(cls, config_path: Path, grants_dir: Path) -> "SyncConfig":
         """Create config from a YAML config file."""
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
+        try:
+            with open(config_path) as f:
+                config = yaml.safe_load(f)
+        except OSError as e:
+            raise ValueError(
+                f"Could not read config file {config_path}: {e}"
+            ) from e
+        except yaml.YAMLError as e:
+            raise ValueError(
+                f"Invalid YAML in config file {config_path}: {e}"
+            ) from e
 
         sync_config = config.get("sync", {})
         url = sync_config.get(
@@ -553,6 +562,7 @@ class GrantKitSync:
             except Exception as e:
                 stats["errors"].append(f"Grant {grant_dir.name}: {e}")
                 logger.error(f"Failed to push grant {grant_dir.name}: {e}")
+                logger.debug("Supabase upsert error details", exc_info=True)
                 continue
 
             # Build section lookup for word_limit/char_limit/sort_order
@@ -652,10 +662,12 @@ class GrantKitSync:
                 except Exception as retry_e:
                     stats["errors"].append(f"Response {filename}: {retry_e}")
                     logger.error(f"Failed to push response {filename}: {retry_e}")
+                    logger.debug("Response upsert retry error details", exc_info=True)
                     return False, False
             else:
                 stats["errors"].append(f"Response {filename}: {e}")
                 logger.error(f"Failed to push response {filename}: {e}")
+                logger.debug("Response upsert error details", exc_info=True)
                 return False, sort_order_supported
 
     def _sync_bibliography(
@@ -748,8 +760,10 @@ class GrantKitSync:
                             continue
                         except Exception as retry_e:
                             logger.error(f"Failed to sync bibliography entry {key}: {retry_e}")
+                            logger.debug("Bibliography upsert retry error", exc_info=True)
                             continue
                     logger.error(f"Failed to sync bibliography entry {key}: {e}")
+                    logger.debug("Bibliography upsert error details", exc_info=True)
 
             if entries_synced > 0:
                 logger.info(
@@ -759,6 +773,7 @@ class GrantKitSync:
 
         except Exception as e:
             logger.error(f"Failed to sync bibliography from {bib_file}: {e}")
+            logger.debug("Bibliography sync error details", exc_info=True)
             return None
 
     def _calculate_display_years(
@@ -835,14 +850,24 @@ class GrantKitSync:
         self, filepath: Path, grant_id: str
     ) -> Dict[str, Any]:
         """Parse a markdown response file with YAML frontmatter."""
-        with open(filepath) as f:
-            content = f.read()
+        try:
+            with open(filepath) as f:
+                content = f.read()
+        except OSError as e:
+            logger.error(f"Could not read response file {filepath}: {e}")
+            raise
 
         # Parse frontmatter
         if content.startswith("---"):
             parts = content.split("---", 2)
             if len(parts) >= 3:
-                frontmatter = yaml.safe_load(parts[1])
+                try:
+                    frontmatter = yaml.safe_load(parts[1])
+                except yaml.YAMLError as e:
+                    logger.warning(
+                        f"Invalid YAML frontmatter in {filepath.name}: {e}"
+                    )
+                    frontmatter = {}
                 body = parts[2].strip()
             else:
                 frontmatter = {}
@@ -1023,6 +1048,7 @@ class GrantKitSync:
 
         except Exception as e:
             logger.error(f"Failed to share grant: {e}")
+            logger.debug("Share grant error details", exc_info=True)
             return {"success": False, "error": str(e)}
 
     def unshare(self, grant_id: str, email: str) -> Dict[str, Any]:
@@ -1070,6 +1096,7 @@ class GrantKitSync:
 
         except Exception as e:
             logger.error(f"Failed to unshare grant: {e}")
+            logger.debug("Unshare grant error details", exc_info=True)
             return {"success": False, "error": str(e)}
 
     def list_collaborators(self, grant_id: str) -> Dict[str, Any]:
@@ -1097,6 +1124,7 @@ class GrantKitSync:
 
         except Exception as e:
             logger.error(f"Failed to list collaborators: {e}")
+            logger.debug("List collaborators error details", exc_info=True)
             return {"success": False, "error": str(e), "collaborators": []}
 
 

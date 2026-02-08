@@ -55,6 +55,12 @@ def pull(ctx: click.Context, grant: Optional[str]) -> None:
             "\n[dim]Set GRANTKIT_SUPABASE_KEY environment variable or create grantkit.yaml[/dim]"
         )
         sys.exit(1)
+    except ConnectionError as e:
+        console.print(f"[red]Connection failed: {e}[/red]")
+        console.print(
+            "\n[dim]Check your internet connection and Supabase URL[/dim]"
+        )
+        sys.exit(1)
     except Exception as e:
         console.print(f"[red]Pull failed: {e}[/red]")
         if ctx.obj["verbose"]:
@@ -211,6 +217,12 @@ def push(ctx: click.Context, grant: Optional[str], validate: bool) -> None:
             "\n[dim]Set GRANTKIT_SUPABASE_KEY environment variable or create grantkit.yaml[/dim]"
         )
         sys.exit(1)
+    except ConnectionError as e:
+        console.print(f"[red]Connection failed: {e}[/red]")
+        console.print(
+            "\n[dim]Check your internet connection and Supabase URL[/dim]"
+        )
+        sys.exit(1)
     except Exception as e:
         console.print(f"[red]Push failed: {e}[/red]")
         if ctx.obj["verbose"]:
@@ -255,6 +267,12 @@ def watch(ctx: click.Context, grant: Optional[str]) -> None:
         sys.exit(1)
     except KeyboardInterrupt:
         console.print("\n[yellow]Watch stopped.[/yellow]")
+    except ConnectionError as e:
+        console.print(f"[red]Connection failed: {e}[/red]")
+        console.print(
+            "\n[dim]Check your internet connection and Supabase URL[/dim]"
+        )
+        sys.exit(1)
     except Exception as e:
         console.print(f"[red]Watch failed: {e}[/red]")
         if ctx.obj["verbose"]:

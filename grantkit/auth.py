@@ -67,8 +67,11 @@ def load_credentials() -> Optional[Credentials]:
     try:
         data = json.loads(CREDENTIALS_FILE.read_text())
         return Credentials.from_dict(data)
+    except OSError as e:
+        logger.warning(f"Could not read credentials file: {e}")
+        return None
     except (json.JSONDecodeError, KeyError) as e:
-        logger.warning(f"Failed to load credentials: {e}")
+        logger.warning(f"Failed to parse credentials: {e}")
         return None
 
 
@@ -106,6 +109,7 @@ def refresh_access_token(creds: Credentials) -> Optional[Credentials]:
             return new_creds
     except Exception as e:
         logger.error(f"Failed to refresh token: {e}")
+        logger.debug("Token refresh error details", exc_info=True)
 
     return None
 
@@ -142,6 +146,7 @@ def get_authenticated_client() -> Optional[Client]:
         return client
     except Exception as e:
         logger.error(f"Failed to create authenticated client: {e}")
+        logger.debug("Authenticated client creation error", exc_info=True)
         return None
 
 
@@ -191,6 +196,7 @@ def device_login(timeout: int = 300) -> Optional[Credentials]:
         ).execute()
     except Exception as e:
         logger.error(f"Failed to create device code: {e}")
+        logger.debug("Device code creation error", exc_info=True)
         print("\nFailed to initiate login. Please try again.")
         return None
 
