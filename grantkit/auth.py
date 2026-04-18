@@ -16,8 +16,29 @@ logger = logging.getLogger(__name__)
 
 # Constants
 DEFAULT_SUPABASE_URL = "https://bmfssahcufqykfagvgtm.supabase.co"
+# Public anon key (RLS-protected). Safe to ship; override per-env with
+# GRANTKIT_SUPABASE_ANON_KEY.
+DEFAULT_SUPABASE_ANON_KEY = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+    ".eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZnNzYWhjdWZxeWtmYWd2Z3RtIiwi"
+    "cm9sZSI6ImFub24iLCJpYXQiOjE3Njc5MTM2NTQsImV4cCI6MjA4MzQ4OTY1NH0"
+    ".K9HjAEcGXAFYx5vm67rQdG0xUO68pDy5AMdn80x4QPI"
+)
 APP_URL = "https://app.grantkit.io"
 CREDENTIALS_FILE = Path.home() / ".grantkit" / "credentials.json"
+
+
+def _supabase_config() -> tuple[str, str]:
+    """Resolve (url, anon_key) for the Supabase project.
+
+    Both are overridable via env so we can rotate keys without a
+    release, and so tests / staging environments can point elsewhere.
+    """
+    url = os.environ.get("GRANTKIT_SUPABASE_URL", DEFAULT_SUPABASE_URL)
+    key = os.environ.get(
+        "GRANTKIT_SUPABASE_ANON_KEY", DEFAULT_SUPABASE_ANON_KEY
+    )
+    return url, key
 
 
 @dataclass
@@ -84,14 +105,7 @@ def clear_credentials() -> None:
 
 def refresh_access_token(creds: Credentials) -> Optional[Credentials]:
     """Refresh an expired access token using the refresh token."""
-    supabase_url = os.environ.get(
-        "GRANTKIT_SUPABASE_URL", DEFAULT_SUPABASE_URL
-    )
-    # Use anon key for refresh - Supabase handles the refresh token validation
-    supabase_key = os.environ.get(
-        "GRANTKIT_SUPABASE_ANON_KEY",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZnNzYWhjdWZxeWtmYWd2Z3RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5MTM2NTQsImV4cCI6MjA4MzQ4OTY1NH0.K9HjAEcGXAFYx5vm67rQdG0xUO68pDy5AMdn80x4QPI",
-    )
+    supabase_url, supabase_key = _supabase_config()
 
     try:
         client: Client = create_client(supabase_url, supabase_key)
@@ -130,14 +144,7 @@ def get_authenticated_client() -> Optional[Client]:
         if not creds:
             return None
 
-    supabase_url = os.environ.get(
-        "GRANTKIT_SUPABASE_URL", DEFAULT_SUPABASE_URL
-    )
-    # Use anon key for initial client creation
-    supabase_key = os.environ.get(
-        "GRANTKIT_SUPABASE_ANON_KEY",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZnNzYWhjdWZxeWtmYWd2Z3RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5MTM2NTQsImV4cCI6MjA4MzQ4OTY1NH0.K9HjAEcGXAFYx5vm67rQdG0xUO68pDy5AMdn80x4QPI",
-    )
+    supabase_url, supabase_key = _supabase_config()
 
     try:
         client: Client = create_client(supabase_url, supabase_key)
@@ -165,25 +172,13 @@ def device_login(timeout: int = 300) -> Optional[Credentials]:
     Returns:
         Credentials if successful, None otherwise
     """
-    supabase_url = os.environ.get(
-        "GRANTKIT_SUPABASE_URL", DEFAULT_SUPABASE_URL
-    )
-    supabase_key = os.environ.get(
-        "GRANTKIT_SUPABASE_ANON_KEY",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZnNzYWhjdWZxeWtmYWd2Z3RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5MTM2NTQsImV4cCI6MjA4MzQ4OTY1NH0.K9HjAEcGXAFYx5vm67rQdG0xUO68pDy5AMdn80x4QPI",
-    )
+    supabase_url, supabase_key = _supabase_config()
 
     # Generate a unique device code
     device_code = secrets.token_urlsafe(32)
 
     # Build authorization URL
     auth_url = f"{APP_URL}/auth/device?code={device_code}"
-
-    print("\nOpening browser to complete authentication...")
-    print(f"If browser doesn't open, visit: {auth_url}\n")
-
-    # Open browser
-    webbrowser.open(auth_url)
 
     # Create Supabase client for polling
     client: Client = create_client(supabase_url, supabase_key)
@@ -199,6 +194,12 @@ def device_login(timeout: int = 300) -> Optional[Credentials]:
         logger.debug("Device code creation error", exc_info=True)
         print("\nFailed to initiate login. Please try again.")
         return None
+
+    print("\nOpening browser to complete authentication...")
+    print(f"If browser doesn't open, visit: {auth_url}\n")
+
+    # Open browser after the pending device code exists.
+    webbrowser.open(auth_url)
 
     print("Waiting for authentication...")
 
