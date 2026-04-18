@@ -182,6 +182,34 @@ class TestPlanClassification:
             "edited": ChangeKind.LOCAL_ONLY_MODIFIED,
         }
 
+    def test_local_deletion_without_cloud_drift_is_safe(self):
+        state = GrantState(
+            responses={
+                "gone": EntityState(updated_at="t1", content_hash="h1"),
+            }
+        )
+        plan = self._plan(
+            local_response_hashes={},  # file gone locally
+            cloud_response_updated_at={"gone": "t1"},  # cloud matches baseline
+            state=state,
+        )
+        assert plan.changes[0].kind == ChangeKind.LOCAL_DELETED
+        assert plan.delete_candidates() == plan.changes
+
+    def test_local_deletion_with_cloud_drift_is_conflict(self):
+        state = GrantState(
+            responses={
+                "gone": EntityState(updated_at="t1", content_hash="h1"),
+            }
+        )
+        plan = self._plan(
+            local_response_hashes={},
+            cloud_response_updated_at={"gone": "t2"},  # cloud moved
+            state=state,
+        )
+        assert plan.changes[0].kind == ChangeKind.CONFLICT
+        assert plan.delete_candidates() == []
+
 
 # ---------------------------------------------------------------------------
 # Push-with-conflict-detection (using the existing mock pattern)
@@ -335,6 +363,122 @@ class TestPushConflictDetection:
         sync = GrantKitSync(sync_config)
         stats = sync.push(grant_id="g1", force=True)
         assert stats["grants"] == 1
+
+
+class TestDeleteHandling:
+    def _seed_deleted_response(self, sync_config, mock_supabase):
+        """Grant with a response in baseline that was removed from disk."""
+        grant_dir = sync_config.grants_dir / "g1"
+        _write_grant(grant_dir, "g1")
+        # grant.yaml present but no responses/ directory (so the
+        # baseline'd response is effectively deleted).
+
+        # Seed baseline: grant + one known response.
+        state = SyncState()
+        gs = GrantState(
+            grant=EntityState(updated_at="t0", content_hash="grant-h"),
+        )
+        gs.responses["gone"] = EntityState(
+            updated_at="t0", content_hash="resp-h"
+        )
+        state.set_grant("g1", gs)
+        save_state(sync_config.grants_dir, state)
+
+        # Cloud returns: grant still present, one response "gone" at t0
+        # (matches baseline, so delete is safe), nothing else.
+        def select_side_effect(columns):
+            select_mock = MagicMock()
+            eq_mock = MagicMock()
+            if "citation_key" in columns:
+                eq_mock.execute.return_value.data = []
+            elif "key" in columns:
+                eq_mock.execute.return_value.data = [
+                    {"key": "gone", "updated_at": "t0"}
+                ]
+            else:
+                eq_mock.execute.return_value.data = [
+                    {"id": "g1", "updated_at": "t0"}
+                ]
+            select_mock.eq.return_value = eq_mock
+            return select_mock
+
+        mock_supabase.table.return_value.select.side_effect = (
+            select_side_effect
+        )
+
+    def test_default_push_reports_deletion_without_acting(
+        self, mock_supabase, sync_config
+    ):
+        self._seed_deleted_response(sync_config, mock_supabase)
+
+        sync = GrantKitSync(sync_config)
+        stats = sync.push(grant_id="g1")
+
+        # Delete was skipped and surfaced in stats.
+        skipped = stats.get("deletions_skipped") or []
+        assert any(
+            e["entity"] == "gone" and e["grant_id"] == "g1" for e in skipped
+        )
+        # delete() was never called on cloud.
+        mock_supabase.table.return_value.delete.assert_not_called()
+
+    def test_with_deletes_actually_deletes(self, mock_supabase, sync_config):
+        self._seed_deleted_response(sync_config, mock_supabase)
+
+        delete_result = MagicMock()
+        delete_result.data = [{"id": 1}]
+        mock_supabase.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = (
+            delete_result
+        )
+
+        sync = GrantKitSync(sync_config)
+        stats = sync.push(grant_id="g1", with_deletes=True)
+
+        assert stats.get("deleted") == 1
+        # Baseline for the deleted response is gone after push.
+        state = load_state(sync_config.grants_dir)
+        assert "gone" not in state.grants["g1"].responses
+
+    def test_delete_with_cloud_drift_blocks_as_conflict(
+        self, mock_supabase, sync_config
+    ):
+        grant_dir = sync_config.grants_dir / "g1"
+        _write_grant(grant_dir, "g1")
+
+        state = SyncState()
+        gs = GrantState(
+            grant=EntityState(updated_at="t0", content_hash="grant-h"),
+        )
+        gs.responses["gone"] = EntityState(
+            updated_at="t0", content_hash="resp-h"
+        )
+        state.set_grant("g1", gs)
+        save_state(sync_config.grants_dir, state)
+
+        # Cloud has drifted on the deleted response (t0 -> t2).
+        def select_side_effect(columns):
+            select_mock = MagicMock()
+            eq_mock = MagicMock()
+            if "citation_key" in columns:
+                eq_mock.execute.return_value.data = []
+            elif "key" in columns:
+                eq_mock.execute.return_value.data = [
+                    {"key": "gone", "updated_at": "t2"}
+                ]
+            else:
+                eq_mock.execute.return_value.data = [
+                    {"id": "g1", "updated_at": "t0"}
+                ]
+            select_mock.eq.return_value = eq_mock
+            return select_mock
+
+        mock_supabase.table.return_value.select.side_effect = (
+            select_side_effect
+        )
+
+        sync = GrantKitSync(sync_config)
+        with pytest.raises(SyncConflictError):
+            sync.push(grant_id="g1", with_deletes=True)
 
 
 # ---------------------------------------------------------------------------

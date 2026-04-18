@@ -20,6 +20,7 @@ console = Console()
 _KIND_DISPLAY = {
     ChangeKind.LOCAL_ONLY_ADDED: ("local", "added locally"),
     ChangeKind.LOCAL_ONLY_MODIFIED: ("local", "modified locally"),
+    ChangeKind.LOCAL_DELETED: ("local", "deleted locally"),
     ChangeKind.CLOUD_ONLY_ADDED: ("cloud", "new on cloud"),
     ChangeKind.CLOUD_ONLY_MODIFIED: ("cloud", "modified on cloud"),
     ChangeKind.CONFLICT: ("conflict", "changed both sides"),
@@ -223,6 +224,15 @@ def _validate_markdown_content(
         "yet, to avoid overwriting manual edits."
     ),
 )
+@click.option(
+    "--with-deletes",
+    is_flag=True,
+    help=(
+        "Delete cloud rows for response / bibliography entries that "
+        "were in the sync baseline but are no longer on disk. Off by "
+        "default to avoid destructive surprises."
+    ),
+)
 @click.pass_context
 def push(
     ctx: click.Context,
@@ -231,6 +241,7 @@ def push(
     dry_run: bool,
     force: bool,
     regenerate_bibliography: Optional[bool],
+    with_deletes: bool,
 ) -> None:
     """Push local files to Supabase."""
     from ..sync import SyncConflictError, get_sync_client
@@ -289,6 +300,7 @@ def push(
                 force=force,
                 dry_run=dry_run,
                 regenerate_bibliography=regenerate_bibliography,
+                with_deletes=with_deletes,
             )
 
         if dry_run:
@@ -299,6 +311,8 @@ def push(
         console.print("\n[green]Push complete![/green]")
         console.print(f"   Grants: {stats['grants']}")
         console.print(f"   Responses: {stats['responses']}")
+        if stats.get("deleted"):
+            console.print(f"   Deleted: {stats['deleted']}")
         if stats.get("bibliography_entries"):
             console.print(
                 f"   Bibliography entries: {stats['bibliography_entries']}"
@@ -313,6 +327,13 @@ def push(
                     f"   [yellow]Bibliography regen skipped for "
                     f"{grant_name}[/yellow] "
                     f"[dim](pass --regenerate-bibliography to overwrite)[/dim]"
+                )
+        if stats.get("deletions_skipped"):
+            for entry in stats["deletions_skipped"]:
+                console.print(
+                    f"   [yellow]Delete skipped:[/yellow] "
+                    f"{entry['grant_id']}/{entry['entity']} "
+                    f"[dim](pass --with-deletes to remove from cloud)[/dim]"
                 )
         if stats.get("grant_yaml_updated_from_budget"):
             for grant_name in stats["grant_yaml_updated_from_budget"]:

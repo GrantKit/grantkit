@@ -607,6 +607,7 @@ class GrantKitSync:
         force: bool = False,
         dry_run: bool = False,
         regenerate_bibliography: Optional[bool] = None,
+        with_deletes: bool = False,
     ) -> Dict[str, Any]:
         """
         Push local files to Supabase.
@@ -619,6 +620,12 @@ class GrantKitSync:
                 but skip (with a warning) if the bibliography file has
                 diverged from the last-regen hash. True = always
                 regenerate. False = never regenerate.
+            with_deletes: If True, delete cloud rows for response or
+                bibliography entries that were in the sync baseline but
+                are no longer on disk. Default False to avoid
+                destructive surprises. Deletions for entities that
+                changed on cloud since the last pull are still blocked
+                (conflict), matching the existing modify semantics.
 
         Returns:
             Stats dict. In dry-run mode it also contains ``"plan"``.
@@ -627,7 +634,12 @@ class GrantKitSync:
             SyncConflictError: if the cloud has moved on for any
                 entity with local changes and ``force`` is False.
         """
-        stats: Dict[str, Any] = {"grants": 0, "responses": 0, "errors": []}
+        stats: Dict[str, Any] = {
+            "grants": 0,
+            "responses": 0,
+            "deleted": 0,
+            "errors": [],
+        }
 
         grant_dirs = self._resolve_grant_dirs(grant_id)
         state = load_state(self.config.grants_dir)
@@ -663,6 +675,7 @@ class GrantKitSync:
 
         if dry_run:
             stats["push_candidates"] = len(plan.push_candidates())
+            stats["delete_candidates"] = len(plan.delete_candidates())
             stats["conflicts"] = len(
                 [c for c in plan.changes if c.kind.name == "CONFLICT"]
             )
@@ -676,7 +689,20 @@ class GrantKitSync:
         for prep in prepared:
             grant_state = state.get_grant(prep["grant_id"])
             self._execute_push_for_grant(prep, user_id, stats, grant_state)
+            if with_deletes:
+                self._execute_deletes_for_grant(
+                    prep["plan"], stats, grant_state
+                )
             state.set_grant(prep["grant_id"], grant_state)
+
+        # Surface skipped deletions so agents realize nothing happened
+        # for those entries (they need to pass --with-deletes).
+        skipped = plan.delete_candidates()
+        if skipped and not with_deletes:
+            stats["deletions_skipped"] = [
+                {"grant_id": c.grant_id, "entity": c.entity_id}
+                for c in skipped
+            ]
 
         save_state(self.config.grants_dir, state)
         return stats
@@ -877,6 +903,57 @@ class GrantKitSync:
             stats["bibliography_entries"] = (
                 stats.get("bibliography_entries", 0) + bib_stats["entries"]
             )
+
+    def _execute_deletes_for_grant(
+        self,
+        plan: SyncPlan,
+        stats: Dict[str, Any],
+        grant_state: GrantState,
+    ) -> None:
+        """Issue DELETEs for LOCAL_DELETED entities under this grant.
+
+        Conflicts (cloud moved after last pull) are never deleted here —
+        they would have blocked the push in the conflict check above
+        unless ``force=True`` was set, in which case the agent has
+        explicitly opted in to overwriting.
+        """
+        for change in plan.delete_candidates():
+            if change.entity_type == "response":
+                try:
+                    self.client.table("responses").delete().eq(
+                        "grant_id", change.grant_id
+                    ).eq("key", change.entity_id).execute()
+                    grant_state.responses.pop(change.entity_id, None)
+                    stats["deleted"] = stats.get("deleted", 0) + 1
+                except Exception as e:
+                    stats["errors"].append(
+                        f"Delete response {change.entity_id}: {e}"
+                    )
+                    logger.error(
+                        "Failed to delete response %s: %s",
+                        change.entity_id,
+                        e,
+                    )
+            elif change.entity_type == "bibliography_entry":
+                try:
+                    self.client.table("bibliography_entries").delete().eq(
+                        "grant_id", change.grant_id
+                    ).eq("citation_key", change.entity_id).execute()
+                    grant_state.bibliography_entries.pop(
+                        change.entity_id, None
+                    )
+                    stats["deleted"] = stats.get("deleted", 0) + 1
+                except Exception as e:
+                    stats["errors"].append(
+                        f"Delete bib entry {change.entity_id}: {e}"
+                    )
+                    logger.error(
+                        "Failed to delete bib entry %s: %s",
+                        change.entity_id,
+                        e,
+                    )
+            # Grants themselves are never deleted via push; users remove
+            # grants through explicit `grantkit archive` flows.
 
     # ------------------------------------------------------------------
     # Cloud timestamp probe (for plan computation)

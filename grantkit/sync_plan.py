@@ -29,6 +29,7 @@ class ChangeKind(str, Enum):
     UNCHANGED = "unchanged"
     LOCAL_ONLY_ADDED = "local_added"
     LOCAL_ONLY_MODIFIED = "local_modified"
+    LOCAL_DELETED = "local_deleted"
     CLOUD_ONLY_ADDED = "cloud_added"
     CLOUD_ONLY_MODIFIED = "cloud_modified"
     CONFLICT = "conflict"
@@ -70,6 +71,10 @@ class SyncPlan:
             in (ChangeKind.LOCAL_ONLY_ADDED, ChangeKind.LOCAL_ONLY_MODIFIED)
         ]
 
+    def delete_candidates(self) -> List[EntityChange]:
+        """Changes that `push --with-deletes` would remove from the cloud."""
+        return [c for c in self.changes if c.kind == ChangeKind.LOCAL_DELETED]
+
     def pull_candidates(self) -> List[EntityChange]:
         """Changes that `pull` would bring down from the cloud."""
         return [
@@ -90,6 +95,23 @@ def _classify(
     cloud_exists = cloud_updated_at is not None
     baseline_exists = baseline.content_hash is not None
 
+    # Neither baseline nor either side: treat as unchanged (nothing to do).
+    if not local_exists and not cloud_exists and not baseline_exists:
+        return ChangeKind.UNCHANGED
+
+    # Local deletion: we had a baseline for it, local no longer has it.
+    if not local_exists and baseline_exists:
+        # If cloud also lacks it, both sides agree on removal.
+        if not cloud_exists:
+            return ChangeKind.UNCHANGED
+        # Cloud still has it, and it matches what we last saw: safe to
+        # propagate the local delete.
+        if cloud_updated_at == baseline.updated_at:
+            return ChangeKind.LOCAL_DELETED
+        # Cloud moved after we last pulled: deleting could wipe work
+        # we haven't seen, so flag as conflict.
+        return ChangeKind.CONFLICT
+
     local_changed = (
         local_exists
         and baseline.content_hash is not None
@@ -100,10 +122,6 @@ def _classify(
         and baseline.updated_at is not None
         and cloud_updated_at != baseline.updated_at
     )
-
-    # Neither baseline nor either side: treat as unchanged (nothing to do).
-    if not local_exists and not cloud_exists:
-        return ChangeKind.UNCHANGED
 
     # New on one side only (no baseline either).
     if not baseline_exists:

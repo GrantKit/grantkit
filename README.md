@@ -132,11 +132,14 @@ pulled or pushed. This lets `push` detect that a collaborator has
 modified the cloud since you pulled:
 
 ```bash
-grantkit sync status      # show local, cloud, and conflicted changes
-grantkit sync diff        # inline diffs for modified responses
+grantkit sync status           # show local, cloud, and conflicted changes
+grantkit sync diff             # inline diffs for modified responses
 grantkit sync push --dry-run   # preview a push
 grantkit sync pull --dry-run   # preview a pull
 grantkit sync push --force     # overwrite cloud anyway
+grantkit sync push --with-deletes   # also delete cloud rows for
+                                    # files removed locally since the
+                                    # last pull
 ```
 
 When a push would overwrite concurrent cloud changes, `grantkit sync
