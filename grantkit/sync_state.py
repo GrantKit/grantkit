@@ -26,6 +26,11 @@ Three-way logic:
 The file is human-inspectable JSON, has a ``version`` for forward
 compatibility, and is safe to delete — if it's missing we fall back
 to "pull creates baseline" and warn that conflict detection is off.
+
+The state is per-machine metadata (it describes when **this** client
+last saw the cloud) and should be gitignored. Merging two teammates'
+baselines would produce a file that doesn't match either teammate's
+actual sync history.
 """
 
 from __future__ import annotations

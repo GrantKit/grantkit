@@ -150,8 +150,9 @@ explicitly pull or push --force.
 
 When a push would overwrite concurrent cloud changes, `grantkit sync
 push` exits with a plan of what's in conflict instead of silently
-upserting. Commit the `.grantkit/state.json` file so teammates share
-the same baseline.
+upserting. The `.grantkit/state.json` baseline is per-machine and
+should be gitignored — each client rebuilds its own view of the cloud
+on pull.
 
 ## Salary Validation
 
