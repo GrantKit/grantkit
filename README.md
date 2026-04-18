@@ -137,10 +137,16 @@ grantkit sync diff             # inline diffs for modified responses
 grantkit sync push --dry-run   # preview a push
 grantkit sync pull --dry-run   # preview a pull
 grantkit sync push --force     # overwrite cloud anyway
+grantkit sync pull --force     # overwrite local edits with cloud
 grantkit sync push --with-deletes   # also delete cloud rows for
                                     # files removed locally since the
                                     # last pull
 ```
+
+Pull skips files with unsaved local changes by default; it will refuse
+to run (non-zero exit + plan) if anything is in true conflict. `watch`
+mode pauses auto-sync for any grant that hits a conflict until you
+explicitly pull or push --force.
 
 When a push would overwrite concurrent cloud changes, `grantkit sync
 push` exits with a plan of what's in conflict instead of silently

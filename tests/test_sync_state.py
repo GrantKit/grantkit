@@ -539,6 +539,96 @@ class TestPullRecordsBaseline:
             sync_config.grants_dir / ".grantkit" / "state.json"
         ).exists()
 
+    def test_pull_skips_files_with_local_edits(
+        self, mock_supabase, sync_config
+    ):
+        """Pull must not overwrite a locally-modified response."""
+        grant_dir = sync_config.grants_dir / "g1"
+        _write_grant(grant_dir, "g1")
+        # Local file with edits the user hasn't pushed.
+        _write_response(grant_dir, "abstract", "work in progress")
+
+        # Baseline says cloud was at t1 with a different content hash.
+        state = SyncState()
+        gs = GrantState(
+            grant=EntityState(updated_at="t1", content_hash="grant-h"),
+        )
+        gs.responses["abstract"] = EntityState(
+            updated_at="t1", content_hash="stale-baseline"
+        )
+        state.set_grant("g1", gs)
+        save_state(sync_config.grants_dir, state)
+
+        # Cloud: grant at t1 (unchanged), response at t1 (unchanged).
+        def select_side_effect(columns):
+            select_mock = MagicMock()
+            eq_mock = MagicMock()
+            if "citation_key" in columns:
+                eq_mock.execute.return_value.data = []
+            elif columns.startswith("key"):
+                eq_mock.execute.return_value.data = [
+                    {"key": "abstract", "updated_at": "t1"}
+                ]
+            else:
+                eq_mock.execute.return_value.data = [
+                    {"id": "g1", "updated_at": "t1"}
+                ]
+            select_mock.eq.return_value = eq_mock
+            return select_mock
+
+        mock_supabase.table.return_value.select.side_effect = (
+            select_side_effect
+        )
+
+        # Non-"key"/"citation_key" select chains (the full grant fetch +
+        # full response fetch inside pull) return the records.
+        def full_select_side_effect(columns):
+            select_mock = MagicMock()
+            # grants
+            if "*" in columns or columns == "*":
+                grant_execute = MagicMock()
+                grant_execute.data = [
+                    {
+                        "id": "g1",
+                        "name": "Test Grant",
+                        "foundation": "F",
+                        "updated_at": "t1",
+                    }
+                ]
+                select_mock.execute.return_value = grant_execute
+                # responses (filter by grant_id)
+                eq_mock = MagicMock()
+                eq_mock.execute.return_value.data = [
+                    {
+                        "key": "abstract",
+                        "title": "Abstract",
+                        "content": "cloud content",
+                        "updated_at": "t1",
+                    }
+                ]
+                select_mock.eq.return_value = eq_mock
+            else:
+                return select_side_effect(columns)
+            return select_mock
+
+        mock_supabase.table.return_value.select.side_effect = (
+            full_select_side_effect
+        )
+
+        sync = GrantKitSync(sync_config)
+        stats = sync.pull()
+
+        # Local response wasn't overwritten.
+        local_body = (
+            sync_config.grants_dir / "g1" / "responses" / "abstract.md"
+        ).read_text()
+        assert "work in progress" in local_body
+        # And pull surfaced the skip.
+        assert any(
+            "abstract" in entry
+            for entry in stats.get("skipped_local_edits", [])
+        )
+
 
 # ---------------------------------------------------------------------------
 # compute_plan

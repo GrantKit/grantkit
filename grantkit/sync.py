@@ -120,6 +120,7 @@ class GrantKitSync:
         self,
         grant_id: Optional[str] = None,
         dry_run: bool = False,
+        force: bool = False,
     ) -> Dict[str, Any]:
         """
         Pull grants and responses from Supabase to local files.
@@ -128,15 +129,23 @@ class GrantKitSync:
             grant_id: Optional specific grant to pull. If None, pulls all.
             dry_run: If True, compute and return the plan but don't
                 write any files or update the sync baseline.
+            force: Overwrite local files that have unsaved changes
+                (LOCAL_ONLY_MODIFIED) or conflicts. Default False so we
+                never lose an agent's in-progress edits by accident.
 
         Returns:
             Dict with stats about what was pulled. When ``dry_run`` is
             True the dict also includes ``"plan"`` (a ``SyncPlan``).
+
+        Raises:
+            SyncConflictError: if any entity is in CONFLICT and
+                ``force`` is False.
         """
         stats: Dict[str, Any] = {
             "grants": 0,
             "responses": 0,
             "files_written": 0,
+            "skipped_local_edits": [],
         }
 
         if dry_run:
@@ -149,6 +158,23 @@ class GrantKitSync:
             return stats
 
         state = load_state(self.config.grants_dir)
+
+        # Pre-flight: check for conflicts and local changes so a pull
+        # cannot silently overwrite in-progress work.
+        plan = self.compute_plan(grant_id=grant_id, include_cloud=True)
+        if plan.has_conflicts and not force:
+            raise SyncConflictError(plan)
+
+        # Entities with local-only changes are kept as-is; we skip them
+        # below and surface the list so the user can push them.
+        local_edited: set = {
+            (c.entity_type, c.grant_id, c.entity_id)
+            for c in plan.changes
+            if c.kind.name
+            in ("LOCAL_ONLY_MODIFIED", "LOCAL_ONLY_ADDED", "LOCAL_DELETED")
+        }
+        if force:
+            local_edited = set()
 
         # Fetch grants
         query = self.client.table("grants").select("*")
@@ -164,16 +190,24 @@ class GrantKitSync:
             grant_dir = self.config.grants_dir / grant["id"]
             grant_dir.mkdir(parents=True, exist_ok=True)
 
-            grant_yaml_bytes = self._write_grant_yaml(grant_dir, grant)
-            stats["files_written"] += 1
-            stats["grants"] += 1
-
-            grant_state = GrantState(
-                grant=EntityState(
-                    updated_at=grant.get("updated_at"),
-                    content_hash=content_hash(grant_yaml_bytes),
-                ),
-            )
+            existing_grant_state = state.get_grant(grant["id"])
+            grant_key = ("grant", grant["id"], grant["id"])
+            if grant_key in local_edited:
+                stats["skipped_local_edits"].append(f"grant {grant['id']}")
+                # Keep the current baseline entry; we didn't write.
+                grant_state = GrantState(
+                    grant=existing_grant_state.grant,
+                )
+            else:
+                grant_yaml_bytes = self._write_grant_yaml(grant_dir, grant)
+                stats["files_written"] += 1
+                stats["grants"] += 1
+                grant_state = GrantState(
+                    grant=EntityState(
+                        updated_at=grant.get("updated_at"),
+                        content_hash=content_hash(grant_yaml_bytes),
+                    ),
+                )
 
             # Fetch responses for this grant
             responses_result = (
@@ -189,6 +223,19 @@ class GrantKitSync:
             responses_dir.mkdir(exist_ok=True)
 
             for response in responses:
+                resp_key = ("response", grant["id"], response["key"])
+                if resp_key in local_edited:
+                    stats["skipped_local_edits"].append(
+                        f"{grant['id']}/responses/{response['key']}.md"
+                    )
+                    # Preserve existing baseline so subsequent pushes
+                    # still detect the local edit against it.
+                    existing = existing_grant_state.responses.get(
+                        response["key"]
+                    )
+                    if existing:
+                        grant_state.responses[response["key"]] = existing
+                    continue
                 filepath, body_bytes = self._write_response_file(
                     responses_dir, response
                 )
@@ -1585,7 +1632,12 @@ class GrantKitSync:
 
         class SyncHandler(FileSystemEventHandler):
             def __init__(self):
-                self.last_sync = {}
+                self.last_sync: Dict[Path, float] = {}
+                # Grant IDs we've hit a conflict on. We stop auto-syncing
+                # those until the user explicitly pulls / force-pushes.
+                # Otherwise watch would spam the same conflict error on
+                # every keystroke.
+                self.paused: Dict[str, str] = {}
 
             def on_modified(self, event):
                 if event.is_directory:
@@ -1594,38 +1646,57 @@ class GrantKitSync:
                 filepath = Path(event.src_path)
 
                 # Only sync markdown files in responses dirs or grant.yaml
-                if filepath.name == "grant.yaml" or (
-                    filepath.suffix == ".md" and "responses" in filepath.parts
+                if not (
+                    filepath.name == "grant.yaml"
+                    or (
+                        filepath.suffix == ".md"
+                        and "responses" in filepath.parts
+                    )
                 ):
-                    # Debounce - don't sync same file within 1 second
-                    now = datetime.now().timestamp()
-                    if (
-                        filepath in self.last_sync
-                        and now - self.last_sync[filepath] < 1.0
-                    ):
-                        return
-                    self.last_sync[filepath] = now
+                    return
 
-                    # Find grant_id from path
-                    grant_id = None
-                    for part in filepath.parts:
-                        if (sync_instance.config.grants_dir / part).is_dir():
-                            grant_id = part
-                            break
+                # Debounce - don't sync same file within 1 second
+                now = datetime.now().timestamp()
+                if (
+                    filepath in self.last_sync
+                    and now - self.last_sync[filepath] < 1.0
+                ):
+                    return
+                self.last_sync[filepath] = now
 
-                    if grant_id:
-                        logger.info(
-                            f"File changed: {filepath.name}, syncing..."
-                        )
-                        try:
-                            stats = sync_instance.push(grant_id)
-                            logger.info(
-                                f"Synced: {stats['responses']} responses"
-                            )
-                            if callback:
-                                callback(stats)
-                        except Exception as e:
-                            logger.error(f"Sync failed: {e}")
+                # Find grant_id from path
+                grant_id = None
+                for part in filepath.parts:
+                    if (sync_instance.config.grants_dir / part).is_dir():
+                        grant_id = part
+                        break
+
+                if not grant_id:
+                    return
+
+                if grant_id in self.paused:
+                    logger.warning(
+                        "Watch is paused for grant '%s' (%s). Run "
+                        "`grantkit sync status` then pull or push "
+                        "--force to resume.",
+                        grant_id,
+                        self.paused[grant_id],
+                    )
+                    return
+
+                logger.info(f"File changed: {filepath.name}, syncing...")
+                try:
+                    stats = sync_instance.push(grant_id)
+                    logger.info(f"Synced: {stats['responses']} responses")
+                    if callback:
+                        callback(stats)
+                except SyncConflictError as e:
+                    # Pause this grant until the user intervenes. Keep
+                    # watching other grants normally.
+                    self.paused[grant_id] = "cloud drifted since last pull"
+                    logger.error("Conflict for grant '%s': %s", grant_id, e)
+                except Exception as e:
+                    logger.error(f"Sync failed: {e}")
 
         observer = Observer()
         observer.schedule(

@@ -82,10 +82,20 @@ def sync(ctx: click.Context) -> None:
     is_flag=True,
     help="Show what would be pulled without writing any files.",
 )
+@click.option(
+    "--force",
+    is_flag=True,
+    help=(
+        "Overwrite local files that have unsaved changes or conflicts. "
+        "Use only after reviewing `grantkit sync status`."
+    ),
+)
 @click.pass_context
-def pull(ctx: click.Context, grant: Optional[str], dry_run: bool) -> None:
+def pull(
+    ctx: click.Context, grant: Optional[str], dry_run: bool, force: bool
+) -> None:
     """Pull grants and responses from Supabase to local files."""
-    from ..sync import get_sync_client
+    from ..sync import SyncConflictError, get_sync_client
 
     project_root = ctx.obj["project_root"]
 
@@ -100,7 +110,9 @@ def pull(ctx: click.Context, grant: Optional[str], dry_run: bool) -> None:
             sync_client = get_sync_client(project_root)
 
             progress.update(task, description="Pulling grants...")
-            stats = sync_client.pull(grant_id=grant, dry_run=dry_run)
+            stats = sync_client.pull(
+                grant_id=grant, dry_run=dry_run, force=force
+            )
 
         if dry_run:
             console.print("\n[cyan]Dry run - no files written.[/cyan]")
@@ -111,7 +123,29 @@ def pull(ctx: click.Context, grant: Optional[str], dry_run: bool) -> None:
         console.print(f"   Grants: {stats['grants']}")
         console.print(f"   Responses: {stats['responses']}")
         console.print(f"   Files written: {stats['files_written']}")
+        if stats.get("skipped_local_edits"):
+            console.print(
+                "\n[yellow]Kept local changes (not overwritten):[/yellow]"
+            )
+            for entry in stats["skipped_local_edits"]:
+                console.print(f"   [dim]- {entry}[/dim]")
+            console.print(
+                "[dim]Push them with `grantkit sync push`, or re-run "
+                "`pull --force` to discard.[/dim]"
+            )
 
+    except SyncConflictError as e:
+        console.print(
+            "\n[red]Conflict: local and cloud have both changed since "
+            "the last sync.[/red]"
+        )
+        _print_plan(e.plan)
+        console.print(
+            "\n[dim]Inspect with `grantkit sync diff`, resolve by "
+            "pushing local first or re-run `pull --force` to take "
+            "cloud.[/dim]"
+        )
+        sys.exit(1)
     except ValueError as e:
         console.print(f"[red]Configuration error: {e}[/red]")
         console.print(
