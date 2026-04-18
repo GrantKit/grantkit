@@ -15,14 +15,14 @@ from supabase import Client, create_client
 logger = logging.getLogger(__name__)
 
 # Constants
-DEFAULT_SUPABASE_URL = "https://bmfssahcufqykfagvgtm.supabase.co"
+DEFAULT_SUPABASE_URL = "https://mryvwkovrscjijincqyi.supabase.co"
 # Public anon key (RLS-protected). Safe to ship; override per-env with
 # GRANTKIT_SUPABASE_ANON_KEY.
 DEFAULT_SUPABASE_ANON_KEY = (
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-    ".eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZnNzYWhjdWZxeWtmYWd2Z3RtIiwi"
-    "cm9sZSI6ImFub24iLCJpYXQiOjE3Njc5MTM2NTQsImV4cCI6MjA4MzQ4OTY1NH0"
-    ".K9HjAEcGXAFYx5vm67rQdG0xUO68pDy5AMdn80x4QPI"
+    ".eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yeXZ3a292cnNjamlqaW5jcXlpIiwi"
+    "cm9sZSI6ImFub24iLCJpYXQiOjE3NzY0OTY4OTcsImV4cCI6MjA5MjA3Mjg5N30"
+    ".5hBXF6v2Gc_LvxV9YC6ojHloIdYooxAgp3Puu6bgPWE"
 )
 APP_URL = "https://app.grantkit.io"
 CREDENTIALS_FILE = Path.home() / ".grantkit" / "credentials.json"

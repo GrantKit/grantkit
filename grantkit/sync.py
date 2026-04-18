@@ -26,7 +26,7 @@ from .sync_state import (
 logger = logging.getLogger(__name__)
 
 # Default Supabase config (can be overridden via env vars or config file)
-DEFAULT_SUPABASE_URL = "https://bmfssahcufqykfagvgtm.supabase.co"
+DEFAULT_SUPABASE_URL = "https://mryvwkovrscjijincqyi.supabase.co"
 
 
 class SyncConflictError(RuntimeError):

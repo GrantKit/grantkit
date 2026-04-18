@@ -35,7 +35,7 @@ class TestSyncConfig:
             assert config.supabase_key == "test-key"
             assert (
                 config.supabase_url
-                == "https://bmfssahcufqykfagvgtm.supabase.co"
+                == "https://mryvwkovrscjijincqyi.supabase.co"
             )
             assert config.grants_dir == Path("/tmp")
 
