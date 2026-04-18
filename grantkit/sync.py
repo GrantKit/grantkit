@@ -5,7 +5,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
@@ -14,11 +14,36 @@ from supabase import Client, create_client
 from .auth import get_authenticated_client, get_current_user_id, is_logged_in
 from .budget.calculator import BudgetCalculator
 from .references.bibtex_manager import BibTeXManager
+from .sync_plan import SyncPlan, build_grant_plan, merge_plans
+from .sync_state import (
+    EntityState,
+    GrantState,
+    content_hash,
+    load_state,
+    save_state,
+)
 
 logger = logging.getLogger(__name__)
 
 # Default Supabase config (can be overridden via env vars or config file)
 DEFAULT_SUPABASE_URL = "https://bmfssahcufqykfagvgtm.supabase.co"
+
+
+class SyncConflictError(RuntimeError):
+    """Raised when push would overwrite concurrent cloud changes.
+
+    The CLI catches this and shows the plan so AI agents can decide
+    whether to pull, merge, or force-push.
+    """
+
+    def __init__(self, plan: SyncPlan):
+        super().__init__(
+            "Push blocked: cloud has changes not present locally. "
+            "Run `grantkit sync status` to see what differs, pull to "
+            "adopt cloud changes, or re-run push with --force to "
+            "overwrite the cloud."
+        )
+        self.plan = plan
 
 
 @dataclass
@@ -91,17 +116,39 @@ class GrantKitSync:
             config.supabase_url, config.supabase_key
         )
 
-    def pull(self, grant_id: Optional[str] = None) -> Dict[str, Any]:
+    def pull(
+        self,
+        grant_id: Optional[str] = None,
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
         """
         Pull grants and responses from Supabase to local files.
 
         Args:
             grant_id: Optional specific grant to pull. If None, pulls all.
+            dry_run: If True, compute and return the plan but don't
+                write any files or update the sync baseline.
 
         Returns:
-            Dict with stats about what was pulled.
+            Dict with stats about what was pulled. When ``dry_run`` is
+            True the dict also includes ``"plan"`` (a ``SyncPlan``).
         """
-        stats = {"grants": 0, "responses": 0, "files_written": 0}
+        stats: Dict[str, Any] = {
+            "grants": 0,
+            "responses": 0,
+            "files_written": 0,
+        }
+
+        if dry_run:
+            plan = self.compute_plan(grant_id=grant_id, include_cloud=True)
+            stats["plan"] = plan
+            stats["pull_candidates"] = len(plan.pull_candidates())
+            stats["conflicts"] = len(
+                [c for c in plan.changes if c.kind.name == "CONFLICT"]
+            )
+            return stats
+
+        state = load_state(self.config.grants_dir)
 
         # Fetch grants
         query = self.client.table("grants").select("*")
@@ -117,23 +164,16 @@ class GrantKitSync:
             grant_dir = self.config.grants_dir / grant["id"]
             grant_dir.mkdir(parents=True, exist_ok=True)
 
-            # Write grant metadata
-            grant_meta = {
-                "id": grant["id"],
-                "name": grant["name"],
-                "foundation": grant["foundation"],
-                "program": grant.get("program"),
-                "deadline": grant.get("deadline"),
-                "status": grant.get("status"),
-                "amount_requested": grant.get("amount_requested"),
-                "duration_years": grant.get("duration_years"),
-                "solicitation_url": grant.get("solicitation_url"),
-                "repo_url": grant.get("repo_url"),
-            }
-            with open(grant_dir / "grant.yaml", "w") as f:
-                yaml.dump(grant_meta, f, default_flow_style=False)
+            grant_yaml_bytes = self._write_grant_yaml(grant_dir, grant)
             stats["files_written"] += 1
             stats["grants"] += 1
+
+            grant_state = GrantState(
+                grant=EntityState(
+                    updated_at=grant.get("updated_at"),
+                    content_hash=content_hash(grant_yaml_bytes),
+                ),
+            )
 
             # Fetch responses for this grant
             responses_result = (
@@ -149,40 +189,95 @@ class GrantKitSync:
             responses_dir.mkdir(exist_ok=True)
 
             for response in responses:
-                # Write response as markdown
-                filename = f"{response['key']}.md"
-                filepath = responses_dir / filename
-
-                # Add frontmatter with metadata
-                frontmatter = {
-                    "title": response.get("title", response["key"]),
-                    "key": response["key"],
-                    "status": response.get("status", "draft"),
-                    "word_limit": response.get("word_limit"),
-                    "char_limit": response.get("char_limit"),
-                    "question": response.get("question"),
-                }
-                # Remove None values
-                frontmatter = {
-                    k: v for k, v in frontmatter.items() if v is not None
-                }
-
-                content = response.get("content", "")
-                with open(filepath, "w") as f:
-                    f.write("---\n")
-                    yaml.dump(frontmatter, f, default_flow_style=False)
-                    f.write("---\n\n")
-                    f.write(content)
-
+                filepath, body_bytes = self._write_response_file(
+                    responses_dir, response
+                )
+                grant_state.responses[response["key"]] = EntityState(
+                    updated_at=response.get("updated_at"),
+                    content_hash=content_hash(body_bytes),
+                )
                 stats["files_written"] += 1
                 stats["responses"] += 1
+
+            # Pull bibliography entries into state so push can detect drift.
+            try:
+                bib_result = (
+                    self.client.table("bibliography_entries")
+                    .select("citation_key, raw_bibtex, updated_at")
+                    .eq("grant_id", grant["id"])
+                    .execute()
+                )
+                for entry in bib_result.data or []:
+                    grant_state.bibliography_entries[entry["citation_key"]] = (
+                        EntityState(
+                            updated_at=entry.get("updated_at"),
+                            content_hash=content_hash(
+                                entry.get("raw_bibtex") or ""
+                            ),
+                        )
+                    )
+            except Exception as e:
+                logger.debug(
+                    "bibliography_entries not available on pull: %s", e
+                )
+
+            state.set_grant(grant["id"], grant_state)
 
             logger.info(
                 f"Pulled grant '{grant['name']}' with "
                 f"{len(responses)} responses"
             )
 
+        save_state(self.config.grants_dir, state)
+
         return stats
+
+    @staticmethod
+    def _write_grant_yaml(grant_dir: Path, grant: Dict[str, Any]) -> str:
+        """Serialize the grant to ``grant.yaml`` and return what we wrote."""
+        grant_meta = {
+            "id": grant["id"],
+            "name": grant["name"],
+            "foundation": grant["foundation"],
+            "program": grant.get("program"),
+            "deadline": grant.get("deadline"),
+            "status": grant.get("status"),
+            "amount_requested": grant.get("amount_requested"),
+            "duration_years": grant.get("duration_years"),
+            "solicitation_url": grant.get("solicitation_url"),
+            "repo_url": grant.get("repo_url"),
+        }
+        text = yaml.dump(grant_meta, default_flow_style=False)
+        (grant_dir / "grant.yaml").write_text(text, encoding="utf-8")
+        return text
+
+    @staticmethod
+    def _write_response_file(
+        responses_dir: Path, response: Dict[str, Any]
+    ) -> Tuple[Path, str]:
+        """Serialize a response to ``<key>.md`` and return (path, text)."""
+        filename = f"{response['key']}.md"
+        filepath = responses_dir / filename
+
+        frontmatter = {
+            "title": response.get("title", response["key"]),
+            "key": response["key"],
+            "status": response.get("status", "draft"),
+            "word_limit": response.get("word_limit"),
+            "char_limit": response.get("char_limit"),
+            "question": response.get("question"),
+        }
+        frontmatter = {k: v for k, v in frontmatter.items() if v is not None}
+
+        content = response.get("content", "")
+        text = (
+            "---\n"
+            + yaml.dump(frontmatter, default_flow_style=False)
+            + "---\n\n"
+            + content
+        )
+        filepath.write_text(text, encoding="utf-8")
+        return filepath, text
 
     # Known database columns for the grants table
     KNOWN_DB_COLUMNS = {
@@ -353,7 +448,10 @@ class GrantKitSync:
 
         bib_section = None
         for section in sections:
-            if section.get("auto_generate") and section.get("type") == "bibliography":
+            if (
+                section.get("auto_generate")
+                and section.get("type") == "bibliography"
+            ):
                 bib_section = section
                 break
 
@@ -399,7 +497,10 @@ class GrantKitSync:
             for match in citation_pattern.finditer(content):
                 citation_text = match.group(1)
                 # Handle multiple citations: [@key1; @key2]
-                keys = [k.strip().lstrip("@") for k in re.split(r"[;,]", citation_text)]
+                keys = [
+                    k.strip().lstrip("@")
+                    for k in re.split(r"[;,]", citation_text)
+                ]
                 used_keys.update(k for k in keys if k)
 
         if not used_keys:
@@ -426,7 +527,9 @@ class GrantKitSync:
         for key in sorted_keys:
             entry = bib_manager.get_entry(key)
             if not entry:
-                logger.warning(f"Citation key '{key}' not found in bibliography")
+                logger.warning(
+                    f"Citation key '{key}' not found in bibliography"
+                )
                 continue
 
             # Format entry
@@ -454,7 +557,9 @@ class GrantKitSync:
             elif len(entry.authors) == 2:
                 authors_str = f"{entry.authors[0]} & {entry.authors[1]}"
             else:
-                authors_str = ", ".join(entry.authors[:-1]) + f", & {entry.authors[-1]}"
+                authors_str = (
+                    ", ".join(entry.authors[:-1]) + f", & {entry.authors[-1]}"
+                )
         else:
             authors_str = "Unknown"
 
@@ -496,124 +601,563 @@ class GrantKitSync:
 
         return citation
 
-    def push(self, grant_id: Optional[str] = None) -> Dict[str, Any]:
+    def push(
+        self,
+        grant_id: Optional[str] = None,
+        force: bool = False,
+        dry_run: bool = False,
+        regenerate_bibliography: Optional[bool] = None,
+    ) -> Dict[str, Any]:
         """
         Push local files to Supabase.
 
         Args:
             grant_id: Optional specific grant to push. If None, pushes all.
+            force: Skip the "cloud has moved on" check and overwrite.
+            dry_run: Compute the plan and return it without pushing.
+            regenerate_bibliography: None = auto-regen when configured,
+                but skip (with a warning) if the bibliography file has
+                diverged from the last-regen hash. True = always
+                regenerate. False = never regenerate.
 
         Returns:
-            Dict with stats about what was pushed.
+            Stats dict. In dry-run mode it also contains ``"plan"``.
+
+        Raises:
+            SyncConflictError: if the cloud has moved on for any
+                entity with local changes and ``force`` is False.
         """
-        stats = {"grants": 0, "responses": 0, "errors": []}
+        stats: Dict[str, Any] = {"grants": 0, "responses": 0, "errors": []}
 
-        # Find grant directories
+        grant_dirs = self._resolve_grant_dirs(grant_id)
+        state = load_state(self.config.grants_dir)
+
+        # --- Phase 1: prepare (apply implicit mutations with warnings,
+        # compute local hashes, fetch cloud timestamps, build plan). ---
+        prepared: List[Dict[str, Any]] = []
+        per_grant_plans: List[SyncPlan] = []
+        for grant_dir in grant_dirs:
+            prep = self._prepare_push_for_grant(
+                grant_dir, regenerate_bibliography, stats
+            )
+            if prep is None:
+                continue
+            cloud = self._fetch_cloud_updated_at(prep["grant_id"])
+            prep["cloud"] = cloud
+            plan = build_grant_plan(
+                grant_id=prep["grant_id"],
+                local_grant_hash=prep["grant_hash"],
+                cloud_grant_updated_at=cloud["grant_updated_at"],
+                local_response_hashes=prep["response_hashes"],
+                cloud_response_updated_at=cloud["responses"],
+                local_bib_hashes=prep["bib_hashes"],
+                cloud_bib_updated_at=cloud["bib"],
+                state=state.get_grant(prep["grant_id"]),
+            )
+            prep["plan"] = plan
+            per_grant_plans.append(plan)
+            prepared.append(prep)
+
+        plan = merge_plans(per_grant_plans)
+        stats["plan"] = plan
+
+        if dry_run:
+            stats["push_candidates"] = len(plan.push_candidates())
+            stats["conflicts"] = len(
+                [c for c in plan.changes if c.kind.name == "CONFLICT"]
+            )
+            return stats
+
+        if plan.has_conflicts and not force:
+            raise SyncConflictError(plan)
+
+        # --- Phase 2: execute pushes and record new baseline. ---
+        user_id = get_current_user_id()
+        for prep in prepared:
+            grant_state = state.get_grant(prep["grant_id"])
+            self._execute_push_for_grant(prep, user_id, stats, grant_state)
+            state.set_grant(prep["grant_id"], grant_state)
+
+        save_state(self.config.grants_dir, state)
+        return stats
+
+    # ------------------------------------------------------------------
+    # Push pipeline helpers
+    # ------------------------------------------------------------------
+
+    def _resolve_grant_dirs(self, grant_id: Optional[str]) -> List[Path]:
         if grant_id:
-            grant_dirs = [self.config.grants_dir / grant_id]
-        elif self.config.grant_id:
-            grant_dirs = [self.config.grants_dir / self.config.grant_id]
-        else:
-            grant_dirs = [
-                d
-                for d in self.config.grants_dir.iterdir()
-                if d.is_dir() and (d / "grant.yaml").exists()
-            ]
+            return [self.config.grants_dir / grant_id]
+        if self.config.grant_id:
+            return [self.config.grants_dir / self.config.grant_id]
+        return [
+            d
+            for d in self.config.grants_dir.iterdir()
+            if d.is_dir() and (d / "grant.yaml").exists()
+        ]
 
+    def _prepare_push_for_grant(
+        self,
+        grant_dir: Path,
+        regenerate_bibliography: Optional[bool],
+        stats: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """Apply implicit mutations (with warnings) and compute hashes.
+
+        Returns a dict with everything ``_execute_push_for_grant`` needs,
+        or None if the directory should be skipped.
+        """
+        grant_yaml = grant_dir / "grant.yaml"
+        if not grant_yaml.exists():
+            logger.warning(f"No grant.yaml in {grant_dir}, skipping")
+            return None
+
+        # Implicit mutation: budget.yaml -> grant.yaml. We warn so agents
+        # can see that their grant.yaml may have been rewritten in place.
+        budget_data = self._sync_budget_to_grant_with_notice(grant_dir, stats)
+
+        with open(grant_yaml) as f:
+            grant_meta = yaml.safe_load(f)
+
+        # Implicit mutation: auto-regenerate bibliography markdown from
+        # citations in responses. Skip when the user has manually edited
+        # the file, unless they explicitly opt in.
+        bib_generated = self._maybe_regenerate_bibliography(
+            grant_dir,
+            grant_meta,
+            regenerate_bibliography,
+            stats,
+        )
+        if bib_generated:
+            stats["bibliography_generated"] = True
+
+        # Normalize to DB schema and compute local hashes for conflict
+        # detection.
+        db_record = self._normalize_grant_yaml(grant_meta, grant_dir.name)
+        if budget_data:
+            db_record["budget"] = budget_data
+
+        grant_hash = content_hash(grant_yaml.read_text(encoding="utf-8"))
+
+        # Locate responses directory (multi-layout support).
+        responses_dir = next(
+            (
+                d
+                for d in [
+                    grant_dir / "responses" / "full",
+                    grant_dir / "responses",
+                    grant_dir / "docs" / "responses",
+                ]
+                if d.exists()
+            ),
+            None,
+        )
+        response_hashes: Dict[str, str] = {}
+        response_files: Dict[str, Path] = {}
+        if responses_dir:
+            for md_file in responses_dir.glob("*.md"):
+                response_data = self._parse_response_file(
+                    md_file, db_record["id"]
+                )
+                key = response_data["key"]
+                response_hashes[key] = content_hash(
+                    md_file.read_text(encoding="utf-8")
+                )
+                response_files[key] = md_file
+
+        # Compute bibliography entry hashes from references.bib.
+        bib_hashes: Dict[str, str] = {}
+        bib_file = self._locate_bib_file(grant_dir)
+        if bib_file:
+            bib_manager = BibTeXManager(grant_dir)
+            bib_manager.load_bibliography(bib_file)
+            for key, entry in bib_manager.entries.items():
+                bib_hashes[key] = content_hash(self._entry_to_bibtex(entry))
+
+        return {
+            "grant_dir": grant_dir,
+            "grant_id": db_record["id"],
+            "grant_meta": grant_meta,
+            "db_record": db_record,
+            "budget_data": budget_data,
+            "grant_hash": grant_hash,
+            "response_hashes": response_hashes,
+            "response_files": response_files,
+            "responses_dir": responses_dir,
+            "bib_hashes": bib_hashes,
+            "bib_file": bib_file,
+        }
+
+    def _execute_push_for_grant(
+        self,
+        prep: Dict[str, Any],
+        user_id: Optional[str],
+        stats: Dict[str, Any],
+        grant_state: GrantState,
+    ) -> None:
+        db_record = dict(prep["db_record"])
+        if user_id:
+            db_record["user_id"] = user_id
+
+        # Upsert grant
+        try:
+            result = (
+                self.client.table("grants")
+                .upsert(db_record, on_conflict="id")
+                .execute()
+            )
+            stats["grants"] += 1
+            logger.info(
+                f"Pushed grant '{db_record.get('name', prep['grant_id'])}'"
+            )
+            updated_at = self._extract_updated_at(result)
+            grant_state.grant = EntityState(
+                updated_at=updated_at,
+                content_hash=prep["grant_hash"],
+            )
+        except Exception as e:
+            stats["errors"].append(f"Grant {prep['grant_id']}: {e}")
+            logger.error(f"Failed to push grant {prep['grant_id']}: {e}")
+            logger.debug("Supabase upsert error details", exc_info=True)
+            return
+
+        # Build section lookup (word_limit/char_limit/sort_order).
+        sections = (
+            prep["grant_meta"]
+            .get("full_application", {})
+            .get("sections", prep["grant_meta"].get("sections", []))
+        )
+        section_by_file: Dict[str, Dict[str, Any]] = {}
+        for idx, section in enumerate(sections):
+            if section.get("file"):
+                section_by_file[section["file"]] = {
+                    **section,
+                    "_sort_order": idx,
+                }
+
+        # Push responses and update per-response baseline.
+        if prep["responses_dir"]:
+            sort_order_supported = True
+            for key, md_file in prep["response_files"].items():
+                response_data = self._parse_response_file(
+                    md_file, prep["grant_id"]
+                )
+                relative_path = md_file.relative_to(prep["grant_dir"])
+                section_meta = section_by_file.get(str(relative_path), {})
+                for field_name in ("word_limit", "char_limit", "question"):
+                    if section_meta.get(field_name) and not response_data.get(
+                        field_name
+                    ):
+                        response_data[field_name] = section_meta[field_name]
+                if "_sort_order" in section_meta and sort_order_supported:
+                    response_data["sort_order"] = section_meta["_sort_order"]
+
+                success, sort_order_supported, updated_at = (
+                    self._upsert_response(
+                        response_data,
+                        md_file.name,
+                        stats,
+                        sort_order_supported,
+                    )
+                )
+                if success:
+                    grant_state.responses[key] = EntityState(
+                        updated_at=updated_at,
+                        content_hash=prep["response_hashes"][key],
+                    )
+
+        # Push bibliography entries.
+        bib_stats = self._sync_bibliography(
+            prep["grant_dir"],
+            prep["grant_id"],
+            grant_state=grant_state,
+            local_hashes=prep["bib_hashes"],
+        )
+        if bib_stats:
+            stats["bibliography_entries"] = (
+                stats.get("bibliography_entries", 0) + bib_stats["entries"]
+            )
+
+    # ------------------------------------------------------------------
+    # Cloud timestamp probe (for plan computation)
+    # ------------------------------------------------------------------
+
+    def _fetch_cloud_updated_at(self, grant_id: str) -> Dict[str, Any]:
+        """Fetch just the ``updated_at`` columns for conflict detection.
+
+        Resilient to malformed responses: any value that isn't a real
+        list-of-dicts (e.g. from a mocked client in tests) is treated
+        as "cloud row does not exist".
+        """
+        result: Dict[str, Any] = {
+            "grant_updated_at": None,
+            "responses": {},
+            "bib": {},
+        }
+        rows = self._safe_select(
+            "grants",
+            "id, updated_at",
+            {"id": grant_id},
+            context=f"grant {grant_id}",
+        )
+        if rows:
+            result["grant_updated_at"] = rows[0].get("updated_at")
+
+        for row in self._safe_select(
+            "responses",
+            "key, updated_at",
+            {"grant_id": grant_id},
+            context=f"responses for {grant_id}",
+        ):
+            key = row.get("key")
+            if key:
+                result["responses"][key] = row.get("updated_at")
+
+        for row in self._safe_select(
+            "bibliography_entries",
+            "citation_key, updated_at",
+            {"grant_id": grant_id},
+            context=f"bibliography for {grant_id}",
+        ):
+            key = row.get("citation_key")
+            if key:
+                result["bib"][key] = row.get("updated_at")
+
+        return result
+
+    def _safe_select(
+        self,
+        table: str,
+        columns: str,
+        filters: Dict[str, Any],
+        context: str,
+    ) -> List[Dict[str, Any]]:
+        """Run a select and return a list of dicts, or [] on any error.
+
+        This is the one place we centralize "cloud may not have this
+        table / row / shape" handling so plan computation never raises.
+        """
+        try:
+            query = self.client.table(table).select(columns)
+            for col, val in filters.items():
+                query = query.eq(col, val)
+            response = query.execute()
+        except Exception as e:
+            logger.debug("Cloud select failed for %s: %s", context, e)
+            return []
+        data = getattr(response, "data", None)
+        if isinstance(data, list):
+            return [row for row in data if isinstance(row, dict)]
+        return []
+
+    @staticmethod
+    def _extract_updated_at(result: Any) -> Optional[str]:
+        """Extract ``updated_at`` from an upsert response, if available."""
+        data = getattr(result, "data", None)
+        if not data:
+            return None
+        if isinstance(data, list) and data:
+            return data[0].get("updated_at")
+        if isinstance(data, dict):
+            return data.get("updated_at")
+        return None
+
+    @staticmethod
+    def _locate_bib_file(grant_dir: Path) -> Optional[Path]:
+        for candidate in (
+            grant_dir / "references.bib",
+            grant_dir / "bibliography.bib",
+            grant_dir / "refs.bib",
+        ):
+            if candidate.exists():
+                return candidate
+        return None
+
+    # ------------------------------------------------------------------
+    # Implicit-mutation wrappers
+    # ------------------------------------------------------------------
+
+    def _sync_budget_to_grant_with_notice(
+        self, grant_dir: Path, stats: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Wrap ``_sync_budget_to_grant`` so agents see that grant.yaml
+        may have been rewritten in place.
+        """
+        grant_yaml = grant_dir / "grant.yaml"
+        before_hash: Optional[str] = None
+        if grant_yaml.exists():
+            before_hash = content_hash(grant_yaml.read_text(encoding="utf-8"))
+
+        budget_data = self._sync_budget_to_grant(grant_dir)
+
+        if budget_data is not None and before_hash is not None:
+            after_hash = content_hash(grant_yaml.read_text(encoding="utf-8"))
+            if before_hash != after_hash:
+                logger.warning(
+                    "%s: budget.yaml updated grant.yaml "
+                    "amount_requested; commit this change",
+                    grant_dir.name,
+                )
+                stats.setdefault("grant_yaml_updated_from_budget", []).append(
+                    grant_dir.name
+                )
+
+        return budget_data
+
+    def _maybe_regenerate_bibliography(
+        self,
+        grant_dir: Path,
+        grant_meta: Dict[str, Any],
+        regenerate: Optional[bool],
+        stats: Dict[str, Any],
+    ) -> bool:
+        """Decide whether to auto-regenerate the bibliography file.
+
+        Auto-regen would silently overwrite manual edits, which is a
+        nasty surprise for an AI agent. We regenerate only when:
+
+        * ``regenerate`` is explicitly True, or
+        * ``regenerate`` is None and the bibliography file either does
+          not exist yet or matches the last regen output exactly.
+
+        Manual edits are detected by hashing the current file and
+        comparing to the hash we produced the last time we wrote it,
+        stored in a sidecar ``.grantkit/state.json`` baseline under the
+        bibliography entity (the file itself isn't tracked there, so we
+        take a conservative approach: if the file exists and
+        ``regenerate`` is None, skip with a warning).
+        """
+        if regenerate is False:
+            return False
+
+        sections = grant_meta.get("full_application", {}).get(
+            "sections", grant_meta.get("sections", [])
+        )
+        bib_section = next(
+            (
+                s
+                for s in sections
+                if s.get("auto_generate") and s.get("type") == "bibliography"
+            ),
+            None,
+        )
+        if not bib_section:
+            return False
+
+        output_path = grant_dir / bib_section.get("file", "")
+        if regenerate is True or not output_path.exists():
+            return self._auto_generate_bibliography(grant_dir, grant_meta)
+
+        # Conservative default: don't silently rewrite a file that
+        # already exists. Surface the skip so agents can pass
+        # --regenerate-bibliography when they actually want it.
+        logger.warning(
+            "%s: skipping bibliography regen to avoid overwriting "
+            "%s; pass --regenerate-bibliography to force.",
+            grant_dir.name,
+            output_path.relative_to(grant_dir),
+        )
+        stats.setdefault("bibliography_skipped", []).append(grant_dir.name)
+        return False
+
+    # ------------------------------------------------------------------
+    # Plan computation (used by status, diff, and dry-run)
+    # ------------------------------------------------------------------
+
+    def compute_plan(
+        self,
+        grant_id: Optional[str] = None,
+        include_cloud: bool = True,
+    ) -> SyncPlan:
+        """Return what a sync would do, without performing it.
+
+        ``include_cloud=False`` is a fast path for offline "what have I
+        changed locally?" queries.
+        """
+        state = load_state(self.config.grants_dir)
+        grant_dirs = self._resolve_grant_dirs(grant_id)
+
+        plans: List[SyncPlan] = []
         for grant_dir in grant_dirs:
             grant_yaml = grant_dir / "grant.yaml"
             if not grant_yaml.exists():
-                logger.warning(f"No grant.yaml in {grant_dir}, skipping")
                 continue
 
-            # Sync budget.yaml to grant.yaml if it exists
-            budget_data = self._sync_budget_to_grant(grant_dir)
-
-            # Read grant metadata (now with updated amount_requested)
-            with open(grant_yaml) as f:
-                grant_meta = yaml.safe_load(f)
-
-            # Normalize to database schema (handles nested and flat formats)
-            db_record = self._normalize_grant_yaml(grant_meta, grant_dir.name)
-
-            # Add budget JSONB if we have budget data
-            if budget_data:
-                db_record["budget"] = budget_data
-
-            # Set user_id if authenticated (required by RLS policy)
-            user_id = get_current_user_id()
-            if user_id:
-                db_record["user_id"] = user_id
-
-            # Auto-generate bibliography if configured
-            bib_generated = self._auto_generate_bibliography(grant_dir, grant_meta)
-            if bib_generated:
-                stats["bibliography_generated"] = True
-
-            # Upsert grant
+            gid = grant_dir.name
+            # Best-effort grant id extraction (matches push normalization).
             try:
-                self.client.table("grants").upsert(
-                    db_record, on_conflict="id"
-                ).execute()
-                stats["grants"] += 1
-                logger.info(
-                    f"Pushed grant '{db_record.get('name', grant_dir.name)}'"
+                with open(grant_yaml) as f:
+                    grant_meta = yaml.safe_load(f) or {}
+                gid = (
+                    grant_meta.get("id")
+                    or grant_meta.get("metadata", {}).get("grant_id")
+                    or grant_dir.name
                 )
-            except Exception as e:
-                stats["errors"].append(f"Grant {grant_dir.name}: {e}")
-                logger.error(f"Failed to push grant {grant_dir.name}: {e}")
-                logger.debug("Supabase upsert error details", exc_info=True)
-                continue
+            except Exception:
+                grant_meta = {}
 
-            # Build section lookup for word_limit/char_limit/sort_order
-            sections = grant_meta.get("full_application", {}).get(
-                "sections", grant_meta.get("sections", [])
+            grant_hash: Optional[str] = content_hash(
+                grant_yaml.read_text(encoding="utf-8")
             )
-            section_by_file = {}
-            for idx, section in enumerate(sections):
-                if section.get("file"):
-                    # Map file path to section metadata with order
-                    section_by_file[section["file"]] = {
-                        **section,
-                        "_sort_order": idx,  # 0-based index from grant.yaml
-                    }
-
-            # Push responses - check multiple possible locations
-            response_dirs_to_check = [
-                grant_dir / "responses" / "full",  # Nuffield-style: responses/full/
-                grant_dir / "responses",  # Simple layout: responses/
-                grant_dir / "docs" / "responses",  # PolicyEngine-style: docs/responses/
-            ]
-
+            response_hashes: Dict[str, str] = {}
             responses_dir = next(
-                (d for d in response_dirs_to_check if d.exists()), None
+                (
+                    d
+                    for d in [
+                        grant_dir / "responses" / "full",
+                        grant_dir / "responses",
+                        grant_dir / "docs" / "responses",
+                    ]
+                    if d.exists()
+                ),
+                None,
             )
             if responses_dir:
-                sort_order_supported = True
                 for md_file in responses_dir.glob("*.md"):
-                    response_data = self._parse_response_file(md_file, db_record["id"])
-
-                    # Merge section metadata (word_limit, char_limit, question, sort_order)
-                    relative_path = md_file.relative_to(grant_dir)
-                    section_meta = section_by_file.get(str(relative_path), {})
-                    for field in ("word_limit", "char_limit", "question"):
-                        if section_meta.get(field) and not response_data.get(field):
-                            response_data[field] = section_meta[field]
-                    if "_sort_order" in section_meta and sort_order_supported:
-                        response_data["sort_order"] = section_meta["_sort_order"]
-
-                    success, sort_order_supported = self._upsert_response(
-                        response_data, md_file.name, stats, sort_order_supported
+                    key = self._parse_response_file(md_file, gid)["key"]
+                    response_hashes[key] = content_hash(
+                        md_file.read_text(encoding="utf-8")
                     )
 
-            # Push bibliography entries if references.bib exists
-            bib_stats = self._sync_bibliography(grant_dir, db_record["id"])
-            if bib_stats:
-                stats["bibliography_entries"] = (
-                    stats.get("bibliography_entries", 0) + bib_stats["entries"]
-                )
+            bib_hashes: Dict[str, str] = {}
+            bib_file = self._locate_bib_file(grant_dir)
+            if bib_file:
+                bib_manager = BibTeXManager(grant_dir)
+                bib_manager.load_bibliography(bib_file)
+                for k, entry in bib_manager.entries.items():
+                    bib_hashes[k] = content_hash(self._entry_to_bibtex(entry))
 
-        return stats
+            if include_cloud:
+                cloud = self._fetch_cloud_updated_at(gid)
+            else:
+                cloud = {
+                    "grant_updated_at": state.get_grant(gid).grant.updated_at,
+                    "responses": {
+                        k: v.updated_at
+                        for k, v in state.get_grant(gid).responses.items()
+                    },
+                    "bib": {
+                        k: v.updated_at
+                        for k, v in state.get_grant(
+                            gid
+                        ).bibliography_entries.items()
+                    },
+                }
+
+            plans.append(
+                build_grant_plan(
+                    grant_id=gid,
+                    local_grant_hash=grant_hash,
+                    cloud_grant_updated_at=cloud["grant_updated_at"],
+                    local_response_hashes=response_hashes,
+                    cloud_response_updated_at=cloud["responses"],
+                    local_bib_hashes=bib_hashes,
+                    cloud_bib_updated_at=cloud["bib"],
+                    state=state.get_grant(gid),
+                )
+            )
+
+        return merge_plans(plans)
 
     def _upsert_response(
         self,
@@ -621,57 +1165,64 @@ class GrantKitSync:
         filename: str,
         stats: Dict[str, Any],
         sort_order_supported: bool,
-    ) -> tuple[bool, bool]:
+    ) -> Tuple[bool, bool, Optional[str]]:
         """
         Upsert a response to the database, handling sort_order column gracefully.
 
-        Args:
-            response_data: Response data to upsert
-            filename: Filename for error messages
-            stats: Stats dict to update
-            sort_order_supported: Whether sort_order column is known to exist
-
         Returns:
-            Tuple of (success, sort_order_supported)
+            Tuple of (success, sort_order_supported, updated_at). The
+            third element is the cloud's ``updated_at`` timestamp after
+            the write, used to refresh the sync baseline.
         """
         try:
-            self.client.table("responses").upsert(
-                response_data, on_conflict="grant_id,key"
-            ).execute()
+            result = (
+                self.client.table("responses")
+                .upsert(response_data, on_conflict="grant_id,key")
+                .execute()
+            )
             stats["responses"] += 1
-            return True, sort_order_supported
+            return True, sort_order_supported, self._extract_updated_at(result)
         except Exception as e:
             error_str = str(e)
             # Check if sort_order column doesn't exist
-            if (
-                "sort_order" in error_str
-                and ("PGRST204" in error_str or "could not find" in error_str.lower())
+            if "sort_order" in error_str and (
+                "PGRST204" in error_str
+                or "could not find" in error_str.lower()
             ):
-                # Retry without sort_order
                 response_data.pop("sort_order", None)
                 try:
-                    self.client.table("responses").upsert(
-                        response_data, on_conflict="grant_id,key"
-                    ).execute()
+                    result = (
+                        self.client.table("responses")
+                        .upsert(response_data, on_conflict="grant_id,key")
+                        .execute()
+                    )
                     stats["responses"] += 1
                     logger.debug(
                         "sort_order column not found, syncing without it. "
                         "Run migration to enable response ordering."
                     )
-                    return True, False  # Mark sort_order as unsupported
+                    return True, False, self._extract_updated_at(result)
                 except Exception as retry_e:
                     stats["errors"].append(f"Response {filename}: {retry_e}")
-                    logger.error(f"Failed to push response {filename}: {retry_e}")
-                    logger.debug("Response upsert retry error details", exc_info=True)
-                    return False, False
+                    logger.error(
+                        f"Failed to push response {filename}: {retry_e}"
+                    )
+                    logger.debug(
+                        "Response upsert retry error details", exc_info=True
+                    )
+                    return False, False, None
             else:
                 stats["errors"].append(f"Response {filename}: {e}")
                 logger.error(f"Failed to push response {filename}: {e}")
                 logger.debug("Response upsert error details", exc_info=True)
-                return False, sort_order_supported
+                return False, sort_order_supported, None
 
     def _sync_bibliography(
-        self, grant_dir: Path, grant_id: str
+        self,
+        grant_dir: Path,
+        grant_id: str,
+        grant_state: Optional[GrantState] = None,
+        local_hashes: Optional[Dict[str, str]] = None,
     ) -> Optional[Dict[str, int]]:
         """
         Sync references.bib to bibliography_entries table.
@@ -679,6 +1230,10 @@ class GrantKitSync:
         Args:
             grant_dir: Path to grant directory
             grant_id: Grant ID for database
+            grant_state: Optional grant state to update with per-entry
+                baselines after successful pushes.
+            local_hashes: Optional precomputed per-entry hashes so the
+                caller and this method agree on what "baseline" means.
 
         Returns:
             Dict with sync stats, or None if no .bib file found or table doesn't exist
@@ -707,7 +1262,9 @@ class GrantKitSync:
             display_years = self._calculate_display_years(bib_manager.entries)
 
             entries_synced = 0
-            display_year_supported = True  # Assume supported until proven otherwise
+            display_year_supported = (
+                True  # Assume supported until proven otherwise
+            )
 
             for key, entry in bib_manager.entries.items():
                 db_entry = {
@@ -729,20 +1286,30 @@ class GrantKitSync:
 
                 # Add display_year if column exists
                 if display_year_supported:
-                    db_entry["display_year"] = display_years.get(key, entry.year)
+                    db_entry["display_year"] = display_years.get(
+                        key, entry.year
+                    )
 
                 # Remove None values
                 db_entry = {k: v for k, v in db_entry.items() if v is not None}
 
                 try:
-                    self.client.table("bibliography_entries").upsert(
-                        db_entry, on_conflict="grant_id,citation_key"
-                    ).execute()
+                    result = (
+                        self.client.table("bibliography_entries")
+                        .upsert(db_entry, on_conflict="grant_id,citation_key")
+                        .execute()
+                    )
                     entries_synced += 1
+                    self._record_bib_baseline(
+                        grant_state, local_hashes, key, result
+                    )
                 except Exception as e:
                     error_str = str(e)
                     # Table doesn't exist - log once and return early
-                    if "404" in error_str or "does not exist" in error_str.lower():
+                    if (
+                        "404" in error_str
+                        or "does not exist" in error_str.lower()
+                    ):
                         logger.debug(
                             "bibliography_entries table not found, skipping sync. "
                             "Run migration to enable this feature."
@@ -753,17 +1320,34 @@ class GrantKitSync:
                         display_year_supported = False
                         db_entry.pop("display_year", None)
                         try:
-                            self.client.table("bibliography_entries").upsert(
-                                db_entry, on_conflict="grant_id,citation_key"
-                            ).execute()
+                            result = (
+                                self.client.table("bibliography_entries")
+                                .upsert(
+                                    db_entry,
+                                    on_conflict="grant_id,citation_key",
+                                )
+                                .execute()
+                            )
                             entries_synced += 1
+                            self._record_bib_baseline(
+                                grant_state, local_hashes, key, result
+                            )
                             continue
                         except Exception as retry_e:
-                            logger.error(f"Failed to sync bibliography entry {key}: {retry_e}")
-                            logger.debug("Bibliography upsert retry error", exc_info=True)
+                            logger.error(
+                                f"Failed to sync bibliography entry {key}: {retry_e}"
+                            )
+                            logger.debug(
+                                "Bibliography upsert retry error",
+                                exc_info=True,
+                            )
                             continue
-                    logger.error(f"Failed to sync bibliography entry {key}: {e}")
-                    logger.debug("Bibliography upsert error details", exc_info=True)
+                    logger.error(
+                        f"Failed to sync bibliography entry {key}: {e}"
+                    )
+                    logger.debug(
+                        "Bibliography upsert error details", exc_info=True
+                    )
 
             if entries_synced > 0:
                 logger.info(
@@ -775,6 +1359,24 @@ class GrantKitSync:
             logger.error(f"Failed to sync bibliography from {bib_file}: {e}")
             logger.debug("Bibliography sync error details", exc_info=True)
             return None
+
+    def _record_bib_baseline(
+        self,
+        grant_state: Optional[GrantState],
+        local_hashes: Optional[Dict[str, str]],
+        key: str,
+        result: Any,
+    ) -> None:
+        """Persist the post-push baseline for a single bibliography entry."""
+        if grant_state is None or local_hashes is None:
+            return
+        hash_value = local_hashes.get(key)
+        if not hash_value:
+            return
+        grant_state.bibliography_entries[key] = EntityState(
+            updated_at=self._extract_updated_at(result),
+            content_hash=hash_value,
+        )
 
     def _calculate_display_years(
         self, entries: Dict[str, Any]
@@ -993,7 +1595,10 @@ class GrantKitSync:
             )
 
             if not grant_result.data:
-                return {"success": False, "error": f"Grant '{grant_id}' not found"}
+                return {
+                    "success": False,
+                    "error": f"Grant '{grant_id}' not found",
+                }
 
             # Look up user by email in profiles table
             # Note: email might be stored differently, try both exact and ilike match
@@ -1027,7 +1632,9 @@ class GrantKitSync:
                 # Update existing collaboration
                 self.client.table("grant_collaborators").update(
                     {"role": role}
-                ).eq("grant_id", grant_id).eq("user_id", target_user_id).execute()
+                ).eq("grant_id", grant_id).eq(
+                    "user_id", target_user_id
+                ).execute()
                 return {
                     "success": True,
                     "message": f"Updated {email}'s role to {role}",

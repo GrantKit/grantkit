@@ -116,11 +116,33 @@ PolicyEngine democratizes policy analysis...
 | `grantkit auth logout` | Clear stored credentials |
 | `grantkit sync pull` | Download grants from Supabase to local markdown |
 | `grantkit sync push` | Upload local changes to Supabase |
+| `grantkit sync status` | Show local vs. cloud changes before pushing |
+| `grantkit sync diff` | Show textual diffs for response files that differ |
 | `grantkit sync watch` | Auto-sync on file changes |
 | `grantkit validate` | Check NSF compliance |
 | `grantkit check-salaries` | Validate salaries against BLS OEWS data |
 | `grantkit budget` | Generate budget narrative and calculations |
 | `grantkit pdf` | Generate NSF-compliant PDF |
+
+### Conflict-safe sync
+
+`grantkit sync` tracks a local baseline in `.grantkit/state.json` that
+records the cloud `updated_at` and content hash of everything you last
+pulled or pushed. This lets `push` detect that a collaborator has
+modified the cloud since you pulled:
+
+```bash
+grantkit sync status      # show local, cloud, and conflicted changes
+grantkit sync diff        # inline diffs for modified responses
+grantkit sync push --dry-run   # preview a push
+grantkit sync pull --dry-run   # preview a pull
+grantkit sync push --force     # overwrite cloud anyway
+```
+
+When a push would overwrite concurrent cloud changes, `grantkit sync
+push` exits with a plan of what's in conflict instead of silently
+upserting. Commit the `.grantkit/state.json` file so teammates share
+the same baseline.
 
 ## Salary Validation
 
