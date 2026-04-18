@@ -254,19 +254,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Auto-create profile on user signup
+-- Auto-create profile on user signup. SECURITY DEFINER runs with the
+-- function-owner's privileges; we pin search_path so the function
+-- finds public.profiles even when invoked from the auth schema
+-- context.
 CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
 BEGIN
-  INSERT INTO profiles (id, email, full_name)
-  VALUES (new.id, new.email, new.raw_user_meta_data->>'full_name')
+  INSERT INTO public.profiles (id, email, full_name)
+  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'full_name')
   ON CONFLICT (id) DO UPDATE
   SET email = EXCLUDED.email,
-      full_name = COALESCE(EXCLUDED.full_name, profiles.full_name),
+      full_name = COALESCE(EXCLUDED.full_name, public.profiles.full_name),
       updated_at = NOW();
-  RETURN new;
+  RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- ============================================
 -- TRIGGERS
