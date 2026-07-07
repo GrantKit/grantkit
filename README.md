@@ -118,7 +118,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: GrantKit/grantkit@v0.2.0
+      - uses: GrantKit/grantkit@v0.2.1
         with:
           path: .          # directory containing grant.yaml
           strict: "false"  # set "true" to fail on warnings too
