@@ -1,0 +1,128 @@
+# Public Benefit Innovation Fund (PBIF) rule pack — Spring 2026, Pilot track,
+# round-2 full application (finalists).
+#
+# Provenance: required-section list from PBIF's round-2 instructions to
+# finalists (June 2026). PBIF is administered by the Center for Civic Futures;
+# submissions go through a WizeHive portal. The public site does not publish
+# per-section word limits or an award range, so NONE are encoded here — they
+# are unknown, not zero/unlimited. Do not fill in limits without a sourced
+# value; confirm details against the current call before relying on this pack.
+#
+# An earlier revision of this pack described the Summer 2025 open call
+# (15 sections, derived from a reference application). Spring 2026 round 2
+# replaced it; see git history if you need the old structure.
+
+id: pbif
+name: Public Benefit Innovation Fund
+program: Spring 2026 Open Call — Pilot track (round-2 full application)
+version: spring-2026-r2
+source_url: https://www.publicbenefitinnovationfund.org
+locale: en-US
+provenance: >-
+  Section list taken verbatim from PBIF round-2 instructions to finalists
+  (June 2026): project roadmap, team bios, impact metrics, technical approach,
+  responsible AI approach, budget and funding justification, partner
+  documentation. No word/char limits or award caps are published; none are
+  encoded.
+content_engine: null
+
+sections:
+  - id: project_roadmap
+    title: Project roadmap
+    required: true
+    description: >-
+      Milestones and timeline for the pilot period, including go/no-go
+      decision points.
+    file: responses/project_roadmap.md
+  - id: team_bios
+    title: Team bios
+    required: true
+    description: Who will do the work and why they are qualified.
+    file: responses/team_bios.md
+  - id: impact_metrics
+    title: Impact metrics
+    required: true
+    description: >-
+      What will be measured, target magnitudes, and how progress is evaluated.
+    file: responses/impact_metrics.md
+  - id: technical_approach
+    title: Technical approach
+    required: true
+    description: >-
+      Architecture, technical choices already made, and choices anticipated
+      during the pilot.
+    file: responses/technical_approach.md
+  - id: responsible_ai
+    title: Responsible AI approach
+    required: true
+    description: >-
+      How AI is used, where humans stay in the loop, and how risks are
+      mitigated.
+    file: responses/responsible_ai.md
+  - id: budget_justification
+    title: Budget and funding justification
+    required: true
+    description: Budget, justification, and how grant funds fit overall funding.
+    file: responses/budget_justification.md
+  - id: partner_documentation
+    title: Partner documentation
+    required: true
+    description: >-
+      Letters of commitment or MOUs demonstrating partnerships solid enough to
+      get started (signed contracts not required).
+    file: responses/partner_documentation.md
+
+formatting_rules: []  # No formatting rules are published for the WizeHive portal.
+
+budget_rules:
+  total_cap: null  # Pilot-track award range not published as of June 2026.
+  annual_cap: null
+  indirect_rate_max: null
+  currency: USD
+  notes: >-
+    No award range is published for the Pilot track; size the budget to the
+    scope and confirm the range with program staff before submission.
+
+portal:
+  accepts_markdown: true  # UNCERTAIN — WizeHive form behaviour not confirmed.
+  plain_text_boxes: false
+  url: null  # WizeHive portal link is provided per-applicant.
+  notes: Submission via WizeHive; confirm field formats before final paste.
+
+review_rubric:
+  - id: roadmap_feasibility
+    name: Roadmap feasibility
+    description: >-
+      Is the pilot roadmap achievable as scoped — tight, high-confidence
+      commitments rather than breadth?
+  - id: team_capacity
+    name: Team capacity
+    description: Does the team have the skills and time to deliver the pilot?
+  - id: measurable_impact
+    name: Measurable impact
+    description: >-
+      Are impact metrics concrete, with target magnitudes and a credible
+      evaluation plan?
+  - id: technical_soundness
+    name: Technical soundness
+    description: >-
+      Is the architecture sound, and are technical choices (made and
+      anticipated) well justified?
+  - id: necessity_of_ai
+    name: Necessity of AI
+    description: >-
+      Why is AI essential to the approach rather than conventional software —
+      and is its role clearly bounded?
+  - id: responsible_ai
+    name: Responsible AI
+    description: >-
+      Are AI risks identified and mitigated, with humans in the loop where it
+      matters?
+  - id: budget_realism
+    name: Budget realism
+    description: Is the budget right-sized to the scope and justified line by line?
+  - id: partnership_strength
+    name: Partnership strength
+    description: >-
+      Is partner documentation solid enough to start work — commitment, not
+      intent?

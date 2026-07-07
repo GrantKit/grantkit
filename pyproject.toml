@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "grantkit"
-version = "0.1.0"
-description = "Professional tools for grant proposal assembly, validation, and AI-assisted writing"
+version = "0.2.0"
+description = "The linter and compiler for grant proposals — grants as files, agents bring the AI"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -18,11 +18,11 @@ keywords = [
     "research",
     "funding",
     "academic",
-    "writing",
+    "linter",
     "validation"
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -39,12 +39,9 @@ dependencies = [
     "rich>=13.0",
     "jinja2>=3.0",
     "bibtexparser>=1.4",
-    "validators>=0.20",
     "beautifulsoup4>=4.12",
     "markdown>=3.5",
     "pylatexenc>=2.10",
-    "supabase>=2.0",
-    "watchdog>=4.0",
 ]
 
 [project.optional-dependencies]
@@ -52,9 +49,11 @@ pdf = [
     "weasyprint>=60.0",
     "pypdf>=4.0",
 ]
-ai = [
-    "anthropic>=0.20",
-    "openai>=1.0",
+docx = [
+    "python-docx>=1.0",
+]
+mcp = [
+    "mcp>=1.2",
 ]
 dev = [
     "pytest>=7.0",
@@ -62,13 +61,15 @@ dev = [
     "black>=24.0",
     "ruff>=0.3",
     "mypy>=1.0",
+    "python-docx>=1.0",
 ]
 all = [
-    "grantkit[pdf,ai,dev]",
+    "grantkit[pdf,docx,mcp]",
 ]
 
 [project.scripts]
 grantkit = "grantkit.cli:main"
+grantkit-mcp = "grantkit.mcp_server:main"
 
 [project.urls]
 Homepage = "https://grantkit.io"
@@ -81,7 +82,7 @@ where = ["."]
 include = ["grantkit*"]
 
 [tool.setuptools.package-data]
-grantkit = ["data/*.yaml", "templates/*"]
+grantkit = ["data/*.yaml", "data/funders/*.yaml", "templates/*"]
 
 [tool.black]
 line-length = 79
@@ -100,8 +101,3 @@ python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
-
-[dependency-groups]
-dev = [
-    "pytest>=9.0.1",
-]

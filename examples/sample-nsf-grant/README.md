@@ -1,14 +1,15 @@
-# Sample NSF Grant
+# Sample NSF grant
 
-This is a sample NSF CSSI Elements grant project demonstrating GrantKit's structure and features.
+A fictional NSF CSSI Elements grant that showcases the unified 0.2.0 schema and
+the `nsf-pappg` rule pack.
 
 ## Structure
 
 ```
 sample-nsf-grant/
-├── grant.yaml           # Project configuration
-├── budget.yaml          # Budget specification
-├── README.md            # This file
+├── grant.yaml           # unified schema: funder, program, pack, sections
+├── budget.yaml          # budget specification
+├── README.md            # this file
 └── responses/
     ├── project_summary.md
     ├── project_description.md
@@ -18,39 +19,26 @@ sample-nsf-grant/
 
 ## Usage
 
-### Validate the proposal
-
 ```bash
 cd examples/sample-nsf-grant
-grantkit validate
-```
 
-### Check budget
+# Lint against the NSF PAPPG rules
+grantkit check
 
-```bash
-grantkit budget
-```
+# Completion, word counts, deadline countdown
+grantkit status
 
-### Check salaries against market data
+# Compile the proposal and a shareable review page
+grantkit build --share
 
-```bash
-grantkit check-salaries --from-budget
-```
-
-### Assemble complete proposal
-
-```bash
-grantkit build
-```
-
-### Generate PDF
-
-```bash
-grantkit pdf --output proposal.pdf
+# Emit a review packet for an AI agent
+grantkit review --pack
 ```
 
 ## Notes
 
-- This is a fictional example for demonstration purposes
-- Amounts and names are illustrative only
-- See the main GrantKit documentation for full usage instructions
+- Fictional example for demonstration; amounts and names are illustrative only.
+- `grant.yaml` sets `pack: nsf-pappg`, so `grantkit check` runs the full NSF
+  PAPPG content engine (prohibited URLs/emails, required Overview /
+  Intellectual Merit / Broader Impacts statements).
+- See the main GrantKit documentation for full usage.

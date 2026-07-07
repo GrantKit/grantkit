@@ -1,7 +1,5 @@
 """Tests for BibTeX manager functionality."""
 
-import pytest
-from pathlib import Path
 from grantkit.references.bibtex_manager import BibTeXManager
 
 
@@ -124,4 +122,6 @@ class TestParseAuthors:
         manager.load_bibliography(bib_file)
 
         entry = manager.get_entry("mhclg2024")
-        assert entry.authors == ["Ministry of Housing, Communities and Local Government"]
+        assert entry.authors == [
+            "Ministry of Housing, Communities and Local Government"
+        ]

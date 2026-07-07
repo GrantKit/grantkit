@@ -1,0 +1,68 @@
+name: GrantKit
+description: >-
+  CI for grants — lint a proposal, compile a shareable review page, and publish
+  a machine-readable status.json as build artifacts.
+author: PolicyEngine
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  path:
+    description: Path to the grant project (a directory containing grant.yaml).
+    required: false
+    default: "."
+  python-version:
+    description: Python version to run GrantKit on.
+    required: false
+    default: "3.12"
+  strict:
+    description: Fail the job on warnings as well as errors.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install GrantKit
+      shell: bash
+      run: python -m pip install --upgrade pip grantkit
+
+    - name: Check (capture, non-fatal)
+      id: check
+      shell: bash
+      run: |
+        grantkit check --json "${{ inputs.path }}" \
+          > "${{ inputs.path }}/check.json" || echo "check reported issues"
+
+    - name: Build shareable review page
+      shell: bash
+      run: grantkit build --share "${{ inputs.path }}"
+
+    - name: Write status.json
+      shell: bash
+      run: grantkit status --json "${{ inputs.path }}" > /dev/null
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: grantkit
+        path: |
+          ${{ inputs.path }}/assembled.html
+          ${{ inputs.path }}/status.json
+          ${{ inputs.path }}/check.json
+        if-no-files-found: warn
+
+    - name: Enforce (errors always fail; warnings fail when strict)
+      shell: bash
+      run: |
+        if [ "${{ inputs.strict }}" = "true" ]; then
+          grantkit check --strict "${{ inputs.path }}"
+        else
+          grantkit check "${{ inputs.path }}"
+        fi

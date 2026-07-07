@@ -37,14 +37,18 @@ travel:
     per_year: 1
 ```
 
-## Automatic Rate Lookup
+## Automatic rate lookup
 
-When you run `grantkit budget`, GrantKit:
+Travel is costed through the budget engine (`grantkit.budget.BudgetManager`),
+which `grantkit check` uses for arithmetic. GSA rate lookups make network
+calls, so they run only when a `GSA_API_KEY` is set; otherwise the manager
+falls back to the `lodging_rate` / `mie_rate` you provide (or conservative
+defaults). When enabled, GrantKit:
 
 1. Looks up GSA rates for each destination
 2. Calculates lodging, M&IE, and first/last day adjustments
-3. Adds standard airfare estimates based on distance
-4. Produces itemized travel budget
+3. Adds your airfare estimates
+4. Produces an itemized travel budget
 
 ## Example Output
 
@@ -103,21 +107,15 @@ project:
   start_date: "2025-09-01"  # Uses FY2025 rates
 ```
 
-## Programmatic Usage
+## Programmatic usage
 
 ```python
-from grantkit.budget import TravelCalculator
+from grantkit.budget import GSAPerDiemAPI
 
-calc = TravelCalculator(fiscal_year=2025)
-
-cost = calc.calculate_trip(
-    destination="Washington, DC",
-    days=4,
-    travelers=2,
-)
-
-print(f"Lodging: ${cost.lodging}")
-print(f"M&IE: ${cost.mie}")
-print(f"Airfare: ${cost.airfare}")
-print(f"Total: ${cost.total}")
+api = GSAPerDiemAPI()  # reads GSA_API_KEY from the environment
+lodging, mie = api.get_rates("Washington", "DC", fiscal_year=2025)
+print(f"Lodging: ${lodging}  M&IE: ${mie}")
 ```
+
+`BudgetManager.load_from_yaml(...)` then `calculate_totals()` applies these
+rates across every travel line item and returns a full budget summary.

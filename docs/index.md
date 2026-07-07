@@ -1,64 +1,52 @@
 # GrantKit
 
-**Professional tools for grant proposal assembly, validation, and AI-assisted writing.**
+**The linter and compiler for grant proposals.** Grants as files; agents bring
+the AI.
 
-GrantKit is an open-source CLI designed for **AI-native teams** who use AI coding agents (Claude Code, Cursor) and want the same workflow for grant writing.
+GrantKit is a stateless, local-first engine. It reads a `grant.yaml` plus your
+Markdown responses, then lints them, compiles them into one submission
+document, and reports a machine-readable status — with no cloud service and no
+AI calls of its own. You point Claude Code (or any agent) at the files to do
+the writing; GrantKit keeps them correct.
 
-## Why GrantKit?
+## Why files
 
-- **Supabase Sync** - Pull grants to local markdown, edit with AI, push back
-- **Pre-submission validation** - Catch NSF PAPPG compliance issues before you submit
-- **Salary validation** - Check personnel costs against BLS OEWS market data
-- **Travel per diem** - Automatic GSA rate lookups by city and fiscal year
-- **Open source** - Inspect, modify, and extend to your needs
+- **Agents read the full context** — every section, limit, and rule is on disk.
+- **Changes are reviewable diffs**, not opaque web-form edits.
+- **Git gives you history and rollback.**
+- **You bring the AI you already use** — GrantKit itself calls no model.
 
-## Quick Start
+It is `eslint` + `tsc` for a grant: `grantkit check` is the linter,
+`grantkit build` is the compiler, and funder rule packs are the config.
+
+## Quick start
 
 ```bash
 pip install grantkit
 
-# Set up Supabase connection
-export GRANTKIT_SUPABASE_KEY="your-key"
-
-# Pull grants and responses to local markdown
-grantkit sync pull
-
-# Edit with your favorite AI tool
-claude "improve the broader impacts section"
-
-# Validate and push changes
-grantkit validate
-grantkit sync push
+grantkit init --funder nuffield-rda   # scaffold from a funder pack
+# ...write responses/ with your editor or an AI agent...
+grantkit check                         # lint against funder rules
+grantkit build --format pdf --share    # compile + shareable review page
 ```
 
-## CLI Commands
+## The five verbs
 
-| Command | Description |
-|---------|-------------|
-| `grantkit sync pull` | Download grants/responses from Supabase to local markdown |
-| `grantkit sync push` | Upload local changes to Supabase |
-| `grantkit sync watch` | Auto-sync on file changes |
-| `grantkit validate` | Check NSF compliance |
-| `grantkit check-salaries` | Validate salaries against OEWS data |
-| `grantkit budget` | Generate budget narrative and calculations |
-| `grantkit pdf` | Generate NSF-compliant PDF |
+| Verb | What it does |
+|------|--------------|
+| `init` | Scaffold a grant project (optionally from a funder pack). |
+| `check` | Lint the proposal; non-zero exit on errors. |
+| `build` | Compile responses into one document; always writes `status.json`. |
+| `review` | Emit a review packet for an AI agent (no AI calls). |
+| `status` | Completion %, per-section word counts, deadline countdown. |
 
-## Features
+## Next steps
 
-| Feature | Description |
-|---------|-------------|
-| **Supabase Sync** | Pull/push grants as local markdown with YAML frontmatter |
-| **NSF Validation** | Check formatting, page limits, URLs, citations against PAPPG |
-| **Salary Validation** | Compare salaries to BLS OEWS percentiles by occupation and metro area |
-| **Budget Management** | GSA per diem lookups, indirect cost calculations |
-| **PDF Generation** | NSF-compliant PDFs with proper fonts, margins, spacing |
-| **Citation Management** | BibTeX integration with automatic bibliography |
-
-## Links
-
-- [GitHub Repository](https://github.com/GrantKit/grantkit)
-- [Landing Page](https://grantkit.io)
-- [Issue Tracker](https://github.com/GrantKit/grantkit/issues)
+- [Getting started](getting-started.md)
+- [CLI reference](cli/overview.md)
+- [Funder rule packs](packs.md)
+- [Artifacts and the status.json contract](artifacts.md)
+- [MCP server and CI for grants](mcp-and-ci.md)
 
 ---
 

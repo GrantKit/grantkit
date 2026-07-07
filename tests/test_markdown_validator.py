@@ -1,14 +1,12 @@
 """Tests for markdown content validator."""
 
-import pytest
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
 import yaml
 
 from grantkit.core.markdown_validator import (
     MarkdownContentValidator,
-    MarkdownViolation,
-    MarkdownValidationResult,
 )
 
 
@@ -65,8 +63,10 @@ More content."""
         result = validator.validate_content(content, "test.md")
 
         assert not result.passed
-        assert any("italic" in v.message.lower() or "emphasis" in v.message.lower()
-                   for v in result.violations)
+        assert any(
+            "italic" in v.message.lower() or "emphasis" in v.message.lower()
+            for v in result.violations
+        )
 
     def test_detects_markdown_links(self):
         """Links should be detected in plain-text grants."""
@@ -117,8 +117,10 @@ More text."""
         result = validator.validate_content(content, "test.md")
 
         assert not result.passed
-        assert any("comment" in v.message.lower() or "html" in v.message.lower()
-                   for v in result.violations)
+        assert any(
+            "comment" in v.message.lower() or "html" in v.message.lower()
+            for v in result.violations
+        )
 
     def test_allows_plain_text(self):
         """Plain text without markdown should pass validation."""
@@ -214,10 +216,14 @@ Line four."""
             responses_dir.mkdir()
 
             # Write a file with markdown
-            (responses_dir / "a_intro.md").write_text("## Bad Header\n\nContent here.")
+            (responses_dir / "a_intro.md").write_text(
+                "## Bad Header\n\nContent here."
+            )
 
             # Write a file without markdown
-            (responses_dir / "b_summary.md").write_text("This is plain text.\n\nMore text.")
+            (responses_dir / "b_summary.md").write_text(
+                "This is plain text.\n\nMore text."
+            )
 
             validator = MarkdownContentValidator(accepts_markdown=False)
             result = validator.validate_directory(responses_dir)
@@ -225,7 +231,9 @@ Line four."""
             assert not result.passed
             # Only the file with markdown should have violations
             assert any("a_intro.md" in v.file_path for v in result.violations)
-            assert not any("b_summary.md" in v.file_path for v in result.violations)
+            assert not any(
+                "b_summary.md" in v.file_path for v in result.violations
+            )
 
 
 class TestMarkdownValidationIntegration:
@@ -238,13 +246,17 @@ class TestMarkdownValidationIntegration:
 
             # Create grant.yaml with accepts_markdown: false
             grant_yaml = tmppath / "grant.yaml"
-            grant_yaml.write_text(yaml.dump({
-                "full_application": {
-                    "title": "Test Grant",
-                    "funder": "Test Funder",
-                    "accepts_markdown": False,
-                }
-            }))
+            grant_yaml.write_text(
+                yaml.dump(
+                    {
+                        "full_application": {
+                            "title": "Test Grant",
+                            "funder": "Test Funder",
+                            "accepts_markdown": False,
+                        }
+                    }
+                )
+            )
 
             # Create responses with markdown
             responses_dir = tmppath / "responses"
@@ -263,12 +275,16 @@ class TestMarkdownValidationIntegration:
 
             # Create grant.yaml without accepts_markdown
             grant_yaml = tmppath / "grant.yaml"
-            grant_yaml.write_text(yaml.dump({
-                "full_application": {
-                    "title": "Test Grant",
-                    "funder": "Test Funder",
-                }
-            }))
+            grant_yaml.write_text(
+                yaml.dump(
+                    {
+                        "full_application": {
+                            "title": "Test Grant",
+                            "funder": "Test Funder",
+                        }
+                    }
+                )
+            )
 
             # Create responses with markdown
             responses_dir = tmppath / "responses"

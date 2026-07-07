@@ -4,207 +4,148 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 
-**Grant writing for the AI agent era.**
+**The linter and compiler for grant proposals.** Grants as files; agents bring the AI.
 
-GrantKit syncs your grants between a cloud database and local markdown files—so AI coding agents can edit them like code.
+GrantKit is a stateless, local-first engine. It reads a `grant.yaml` plus your
+Markdown responses and it lints them, compiles them into one submission
+document, and reports a machine-readable status — with no cloud service and no
+AI calls of its own. Point Claude Code (or any agent) at the files to do the
+writing; GrantKit keeps them correct.
 
-## The Paradigm
+## Why files
 
-> "2023 was the year of the chatbot. 2024 was the year of RAG and finetuning. 2025 has been the year of MCP and tool use. **2026 will be the year of the computer environment and filesystem.**"
->
-> — [Alex Albert, Anthropic](https://x.com/alexalbert__/status/1983209299624243529)
+Grant portals trap your content in web forms where your tools can't reach it.
+GrantKit keeps the whole proposal as plain files in a git repo:
 
-AI agents like Claude Code, Cursor, Gemini CLI, and Codex are transforming how we write code. They read files, understand context, make surgical edits, and commit changes—all with full git history and diff review.
+- **Agents read the full context** — every section, limit, and rule is on disk.
+- **Changes are reviewable diffs**, not opaque form edits.
+- **Git gives you history and rollback.**
+- **You bring the AI you already use** — GrantKit itself calls no model.
 
-**But most grant tools trap your content in web UIs where AI can't help.**
+Think of it as `eslint` + `tsc` for a grant: `grantkit check` is the linter,
+`grantkit build` is the compiler, and funder **rule packs** are the config.
 
-GrantKit bridges this gap:
-- Your grants live in **Supabase** for team collaboration and web access
-- You edit them as **local markdown files** where AI agents excel
-- Changes sync bidirectionally with conflict detection
-
-## Why Files, Not Apps?
-
-Other grant tools have their own AI built in. But you already have Claude Code. GrantKit gets out of the way and lets your tools do the writing.
-
-When your grants are files:
-- **AI agents can read the full context** (not just what fits in an API response)
-- **Changes are reviewable diffs** (not opaque database mutations)
-- **Git provides history and rollback** (not "undo" buttons with limited memory)
-- **You control the AI** (use Claude, GPT-4, Gemini, local models—whatever works)
-
-## Features
-
-- **Supabase Sync** - Pull grants to local markdown, edit with AI, push back
-- **OAuth Device Flow** - Secure CLI authentication via browser (no API keys)
-- **Pre-submission validation** - Catch NSF PAPPG compliance issues before you submit
-- **Salary validation** - Check personnel costs against BLS OEWS market data
-- **Travel per diem** - Automatic GSA rate lookups by city and fiscal year
-- **Open source** - Inspect, modify, and extend to your needs
-
-## Quick Start
+## Install
 
 ```bash
-pip install grantkit
-
-# Authenticate via browser (OAuth device flow)
-grantkit auth login
-
-# Pull grants to local markdown
-grantkit sync pull
-
-# Edit with your favorite AI tool
-claude "improve the broader impacts section"
-
-# Validate and push changes
-grantkit validate
-grantkit sync push
+pip install grantkit               # core engine
+pip install "grantkit[pdf]"        # + PDF output (WeasyPrint)
+pip install "grantkit[docx]"       # + DOCX output (python-docx)
+pip install "grantkit[mcp]"        # + MCP server for agents
+pip install "grantkit[all]"        # everything
 ```
 
-## How It Works
-
-GrantKit syncs between local files and the cloud. Use AI tools locally, collaborate in the browser.
-
-```
-┌─────────────────┐     grantkit sync pull     ┌─────────────────┐
-│                 │ ◄──────────────────────────│                 │
-│   Local Files   │                            │    Supabase     │
-│   (Markdown)    │ ──────────────────────────►│    (Cloud)      │
-│                 │     grantkit sync push     │                 │
-└─────────────────┘                            └─────────────────┘
-        │
-        │  Edit with Claude Code,
-        │  Cursor, or any AI tool
-        ▼
-```
-
-### Local File Structure
-
-```
-my-grants/
-├── nsf-cssi/
-│   ├── grant.yaml
-│   └── responses/
-│       ├── abstract.md
-│       ├── broader_impacts.md
-│       └── technical_approach.md
-├── arnold-labor/
-│   └── ...
-```
-
-### Response Format
-
-```markdown
----
-title: Broader Impacts
-key: broader_impacts
-word_limit: 2500
-status: draft
----
-
-# Broader Impacts
-
-PolicyEngine democratizes policy analysis...
-```
-
-## CLI Commands
-
-| Command | Description |
-|---------|-------------|
-| `grantkit auth login` | Authenticate via browser (OAuth device flow) |
-| `grantkit auth whoami` | Show currently logged-in user |
-| `grantkit auth logout` | Clear stored credentials |
-| `grantkit sync pull` | Download grants from Supabase to local markdown |
-| `grantkit sync push` | Upload local changes to Supabase |
-| `grantkit sync status` | Show local vs. cloud changes before pushing |
-| `grantkit sync diff` | Show textual diffs for response files that differ |
-| `grantkit sync watch` | Auto-sync on file changes |
-| `grantkit validate` | Check NSF compliance |
-| `grantkit check-salaries` | Validate salaries against BLS OEWS data |
-| `grantkit budget` | Generate budget narrative and calculations |
-| `grantkit pdf` | Generate NSF-compliant PDF |
-
-### Conflict-safe sync
-
-`grantkit sync` tracks a local baseline in `.grantkit/state.json` that
-records the cloud `updated_at` and content hash of everything you last
-pulled or pushed. This lets `push` detect that a collaborator has
-modified the cloud since you pulled:
+## Quickstart
 
 ```bash
-grantkit sync status           # show local, cloud, and conflicted changes
-grantkit sync diff             # inline diffs for modified responses
-grantkit sync push --dry-run   # preview a push
-grantkit sync pull --dry-run   # preview a pull
-grantkit sync push --force     # overwrite cloud anyway
-grantkit sync pull --force     # overwrite local edits with cloud
-grantkit sync push --with-deletes   # also delete cloud rows for
-                                    # files removed locally since the
-                                    # last pull
+# 1. Scaffold a project from a funder rule pack
+grantkit init --funder nuffield-rda
+
+# 2. Write — with Claude Code, Cursor, or your editor
+claude "draft responses/b_case_for_importance.md from our repo README"
+
+# 3. Lint against the funder's rules
+grantkit check
+
+# 4. Compile the submission document (+ a shareable review page)
+grantkit build --format pdf --share
 ```
 
-Pull skips files with unsaved local changes by default; it will refuse
-to run (non-zero exit + plan) if anything is in true conflict. `watch`
-mode pauses auto-sync for any grant that hits a conflict until you
-explicitly pull or push --force.
+## The five verbs
 
-When a push would overwrite concurrent cloud changes, `grantkit sync
-push` exits with a plan of what's in conflict instead of silently
-upserting. The `.grantkit/state.json` baseline is per-machine and
-should be gitignored — each client rebuilds its own view of the cloud
-on pull.
+| Verb | What it does |
+|------|--------------|
+| `grantkit init [--funder PACK]` | Scaffold `grant.yaml`, `responses/`, `budget.yaml`, `references.bib`. |
+| `grantkit check [--json] [--strict] [--urls]` | Lint the proposal. Non-zero exit on errors (warnings fail only with `--strict`). |
+| `grantkit build [--format md\|html\|pdf\|docx] [--share]` | Compile responses into one document; always writes `status.json`. |
+| `grantkit review [--pack]` | Emit a structured review packet for an AI agent (no AI calls). |
+| `grantkit status [--json]` | Completion %, per-section word counts, deadline countdown. |
 
-## Salary Validation
+Every verb takes an optional path to the grant directory (default `.`).
 
-Compare proposed salaries to BLS market data:
+## What check catches
+
+- Required sections present and non-empty; word / character / page limits.
+- Placeholder text left behind (`[TO BE COMPLETED]`, `TODO`, `lorem ipsum`).
+- Markdown that a **plain-text portal** would paste literally.
+- Citations (`[@key]`) that don't resolve against `references.bib`.
+- Budget arithmetic (fringe/indirect) and funder caps; optional BLS salary and
+  GSA per-diem sanity when those API keys are set.
+- Funder formatting rules from the rule pack — including the full NSF PAPPG
+  content engine (prohibited URLs/emails, required Intellectual Merit / Broader
+  Impacts, etc.).
+- US/UK spelling for the funder's locale.
+- Link liveness (`--urls`, opt-in — the only thing that touches the network).
+
+## Funder rule packs
+
+A **rule pack** is a YAML file under `grantkit/data/funders/` describing one
+funder: its sections and limits, formatting rules (each with a citation),
+budget caps, portal quirks, spelling locale, and review rubric. Three ship
+today:
+
+| Pack id | Funder | Notes |
+|---------|--------|-------|
+| `nsf-pappg` | National Science Foundation | PAPPG 24-1; full content engine + merit-review rubric. |
+| `nuffield-rda` | Nuffield Foundation | RDA full application; en-GB; plain-text portal. |
+| `pbif` | Public Benefit Innovation Fund | Section list only; no limits published. |
+
+### Contributing a pack
+
+1. Copy an existing pack in `grantkit/data/funders/` and edit it. The stem of
+   the filename is the pack id (`acme-fund.yaml` → `acme-fund`).
+2. Only encode values you can source. Leave a limit `null` if the funder
+   doesn't publish one — never invent a number. Add a `provenance:` note and
+   comments citing where each value came from.
+3. Set `locale` (`en-US`/`en-GB`) and `portal.accepts_markdown`.
+4. Run `python -c "from grantkit.packs import load_pack; load_pack('acme-fund')"`
+   — it validates against the schema on load — and add a case to
+   `tests/test_packs.py`.
+
+The full schema is documented in `grantkit/packs/schema.py`.
+
+## CI for grants
+
+Add the composite action to lint every push and publish the review page and
+`status.json` as build artifacts:
+
+```yaml
+# .github/workflows/grant.yml
+name: Grant
+on: [push, pull_request]
+jobs:
+  grantkit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: GrantKit/grantkit@v0.2.0
+        with:
+          path: .          # directory containing grant.yaml
+          strict: "false"  # set "true" to fail on warnings too
+```
+
+Errors always fail the job; the `assembled.html` review page and `status.json`
+are uploaded as artifacts on every run.
+
+## MCP server for agents
+
+Expose the engine to an agent over the Model Context Protocol:
 
 ```bash
-# Check a single salary
-grantkit check-salaries --salary 150000 --occupation software_developer
-
-# Check with geographic adjustment
-grantkit check-salaries --salary 180000 --occupation software_developer --area san_francisco
-
-# Validate all personnel from budget
-grantkit check-salaries --from-budget
+pip install "grantkit[mcp]"
+grantkit-mcp          # stdio transport
 ```
 
-Supported occupations: `software_developer`, `data_scientist`, `cs_professor`, `economist`, `postdoc`, `statistician`, and more.
+Tools: `grant_check(path)`, `grant_status(path)`, `grant_build(path, format)` —
+each returning the same JSON structures the CLI emits.
 
-## NSF Validation
+## status.json
 
-```bash
-grantkit validate
-```
-
-Checks:
-- Page limits (Project Summary, Description, Bio Sketches)
-- Font size and margin requirements
-- URL restrictions in project description
-- Required sections present
-- Citation completeness
-
-## Installation Options
-
-```bash
-# Core CLI
-pip install grantkit
-
-# With PDF generation
-pip install grantkit[pdf]
-
-# All features
-pip install grantkit[all]
-```
-
-## Documentation
-
-Full documentation at [docs.grantkit.io](https://docs.grantkit.io)
-
-- [Getting Started](https://docs.grantkit.io/getting-started)
-- [CLI Reference](https://docs.grantkit.io/cli/overview)
-- [Salary Validation](https://docs.grantkit.io/features/salary-validation)
-- [API Reference](https://docs.grantkit.io/api-reference)
+`grantkit build` and `grantkit status --json` always write a `status.json`
+describing completion, per-section word counts, and the current check results.
+It is GrantKit's stable, machine-readable contract for other tools (dashboards,
+CRMs, agents). The exact shape is documented in
+[docs/artifacts.md](docs/artifacts.md).
 
 ## Development
 
@@ -213,22 +154,12 @@ git clone https://github.com/GrantKit/grantkit.git
 cd grantkit
 pip install -e ".[dev]"
 
-# Run tests
-pytest
-
-# Format code
-black . && ruff check --fix .
+ruff check . && black --check . && mypy grantkit && pytest
 ```
+
+Issues and tasks are tracked in
+[GitHub Issues](https://github.com/GrantKit/grantkit/issues).
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Links
-
-- [Website](https://grantkit.io)
-- [Documentation](https://docs.grantkit.io)
-- [GitHub](https://github.com/GrantKit/grantkit)
-- [Issues](https://github.com/GrantKit/grantkit/issues)
-
-Created by [PolicyEngine](https://policyengine.org)
+MIT — see [LICENSE](LICENSE). Created by [PolicyEngine](https://policyengine.org).

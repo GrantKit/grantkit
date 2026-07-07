@@ -1,182 +1,90 @@
-# Repository Guidelines
+# Repository guidelines
 
-## Issue Tracking with bd (beads)
+## Issue tracking
 
-**IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
+Track work in **[GitHub Issues](https://github.com/GrantKit/grantkit/issues)**.
+This project does not use beads (`bd`) or in-repo markdown task lists.
 
-### Quick Start
+## Project overview
 
-```bash
-bd ready                              # Check for ready work
-bd create "Title" -t task -p 2        # Create issue
-bd update bd-123 --status in_progress # Claim work
-bd close bd-123 --reason "Done"       # Complete work
-```
-
-### Priority Levels
-
-- **P0**: Critical (security, data loss, broken CI)
-- **P1**: High (major features, important bugs)
-- **P2**: Medium (default, nice-to-have)
-- **P3**: Low (polish, optimization)
-- **P4**: Backlog (future ideas)
-
-### Issue Types
-
-- `epic` - Large initiative with subtasks
-- `feature` - New functionality
-- `task` - General work item
-- `bug` - Something broken
-- `chore` - Maintenance (deps, tooling)
-
-### Dependency Types
-
-Use `--deps <type>:<id>` when creating issues:
-
-```bash
-# Subtask under an epic
-bd create "Add OAuth refresh" -p 1 --deps parent-child:bd-xxx
-
-# Found new work while working on another issue
-bd create "Found sync bug" -p 1 --deps discovered-from:bd-abc
-
-# This issue blocks another
-bd create "Fix auth first" -p 1 --deps blocks:bd-xyz
-```
-
-### Workflow for AI Agents
-
-1. **Check ready work**: `bd ready` shows unblocked issues
-2. **Claim your task**: `bd update <id> --status in_progress`
-3. **Work on it**: Implement, test, document
-4. **Discover new work?** Create linked issue:
-   ```bash
-   bd create "Found issue" -p 1 --deps discovered-from:<current-task-id>
-   ```
-5. **Complete**: `bd close <id> --reason "Brief summary"`
-6. **Commit together**: Always commit `.beads/issues.jsonl` with code changes
-
-### Important Rules
-
-- Use bd for ALL task tracking
-- Always include descriptions with `--description="..."` for context
-- Check `bd ready` before asking "what should I work on?"
-- Do NOT create markdown TODO lists
-- Link discovered work with `discovered-from` to maintain context
-
----
-
-## Project Overview
-
-**GrantKit** - Grant writing for the AI agent era. Syncs grants between Supabase (cloud) and local markdown files so AI coding agents can edit them like code.
+**GrantKit** — the linter and compiler for grant proposals. A stateless,
+local-first engine: it reads a `grant.yaml` plus Markdown responses and lints,
+compiles, and reports on them. It makes **no** AI calls and no network calls by
+default (URL liveness and BLS/GSA lookups are opt-in and gated on flags/keys).
 
 ### Architecture
 
 ```
 grantkit/
-├── __init__.py      # Package init, version
-├── cli.py           # Click CLI commands (main entry point)
-├── auth.py          # OAuth device flow authentication
-├── sync.py          # Supabase <-> local file sync
-├── ai/              # AI integrations (Anthropic, OpenAI)
-├── budget/          # Budget calculation and narrative
-├── core/            # Core data models and logic
-├── data/            # Static data files (YAML configs)
-├── funders/         # Funder-specific rules (NSF, etc.)
-├── pdf/             # PDF generation (WeasyPrint)
-├── references/      # Citation and bibliography handling
-├── templates/       # Jinja2 templates
-├── utils/           # Shared utilities
-└── validators/      # NSF PAPPG compliance checks
+├── __init__.py        # package init, version, top-level exports
+├── cli.py             # Click CLI — exactly five verbs
+├── mcp_server.py      # FastMCP server (grantkit-mcp)
+├── core/
+│   ├── project.py     # GrantProject — reads grant.yaml + responses
+│   ├── checks.py      # run_checks() — the consolidated linter
+│   ├── status.py      # status.json contract
+│   ├── scaffold.py    # `init`
+│   ├── builder.py     # `build` (md/html/pdf/docx, --share)
+│   ├── review.py      # `review` packet
+│   ├── validator.py   # NSF PAPPG content validator
+│   ├── assembler.py   # legacy assembler (retained)
+│   └── spelling.py    # en-US / en-GB locale checks
+├── packs/             # funder rule packs: schema, registry, loading
+│   └── schema.py      # FunderPack schema + validate_pack()
+├── data/funders/      # the rule packs (*.yaml); stem = pack id
+├── budget/            # budget arithmetic, GSA per-diem, BLS OEWS salary
+├── references/        # BibTeX + citation extraction
+├── pdf/               # legacy NSF PDF pipeline (WeasyPrint), retained
+└── utils/             # shared helpers
 ```
 
----
+The five verbs are `init`, `check`, `build`, `review`, `status`. Do not add
+top-level verbs without discussion — the surface is deliberately small.
 
-## Build, Test, and Development Commands
+## Build, test, and development commands
 
 ```bash
-# Setup
 pip install -e ".[dev]"
 
-# Run tests
-pytest                           # All tests
-pytest tests/test_cli.py -v      # Single file
-pytest -k "test_sync"            # By name pattern
-pytest --cov=grantkit            # With coverage
+pytest                        # all tests
+pytest tests/test_checks.py   # one file
+pytest -k spelling            # by pattern
 
-# Format and lint
-black .                          # Format
-ruff check --fix .               # Lint + autofix
-mypy grantkit/                   # Type check
-
-# Pre-commit (all checks)
-black . && ruff check --fix . && pytest
+ruff check --fix .            # lint (+ autofix)
+black .                       # format (line length 79)
+mypy grantkit                 # type check
 ```
 
-### CI Workflow
+### CI
 
-Push triggers:
-1. `black --check .`
-2. `ruff check .`
-3. `pytest`
+Push / PR runs (`.github/workflows/ci.yml`): `ruff check .`,
+`black --check .`, `mypy grantkit` (non-fatal), and `pytest`. Keep them green.
 
----
+## Code style
 
-## Code Style & Conventions
+- Python 3.12+, line length **79** (black + ruff configured).
+- `snake_case` functions/modules, `PascalCase` classes, `UPPER_SNAKE`
+  constants; imports sorted by ruff (isort).
+- CLI output via `rich`; findings returned as `CheckItem`/`CheckResult`.
 
-- **Python**: 3.12+, strict typing encouraged
-- **Line length**: 79 chars (black + ruff configured)
-- **Imports**: sorted by ruff (isort rules)
-- **Naming**:
-  - `snake_case` for functions, variables, modules
-  - `PascalCase` for classes
-  - `UPPER_SNAKE` for constants
-- **CLI**: Click with rich for output formatting
-- **Testing**: pytest, fixtures in `conftest.py`
+## Rule packs
 
-### Key Patterns
+- Live in `grantkit/data/funders/*.yaml`; the filename stem is the pack id.
+- **Never invent limits.** Leave a value `null` if the funder doesn't publish
+  it, and record `provenance`. Packs validate against `packs/schema.py` on
+  load; add a case to `tests/test_packs.py` for any new pack.
 
-- **Sync operations**: Always handle conflicts explicitly
-- **Auth**: OAuth device flow, tokens stored via keyring
-- **Validation**: Return list of `ValidationError` objects
-- **CLI output**: Use `rich.console` for formatted output
+## Commit & PR guidelines
 
----
+- Conventional commits, imperative mood (`feat: add nih pack`).
+- Run `ruff check . && black --check . && pytest` before pushing.
+- PR descriptions: motivation, what changed, and test results.
 
-## Testing Guidelines
-
-- Co-locate tests in `tests/` directory
-- Use pytest fixtures for common setup
-- Mock Supabase calls in sync tests
-- Test CLI commands via Click's `CliRunner`
-
-```python
-# Example CLI test
-from click.testing import CliRunner
-from grantkit.cli import main
-
-def test_validate_command():
-    runner = CliRunner()
-    result = runner.invoke(main, ["validate", "--help"])
-    assert result.exit_code == 0
-```
-
----
-
-## Commit & PR Guidelines
-
-- Commits: Imperative mood ("Add sync command", "Fix OAuth flow")
-- Always run `black . && ruff check --fix . && pytest` before committing
-- Include `.beads/issues.jsonl` in commits when issues change
-- PR descriptions: Summary, test plan, link to bd issue
-
----
-
-## Environment Variables
+## Environment variables
 
 | Variable | Description |
 |----------|-------------|
-| `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_ANON_KEY` | Supabase anonymous key |
-| `GRANTKIT_AUTH_TOKEN` | OAuth access token (auto-managed) |
-| `BLS_API_KEY` | Optional: BLS API for salary data |
+| `BLS_API_KEY` | Optional. Enables BLS OEWS salary checks in `grantkit check`. |
+| `GSA_API_KEY` | Optional. Enables GSA per-diem lookups in budget costing. |
+
+No other configuration is required — the engine is stateless and local-first.

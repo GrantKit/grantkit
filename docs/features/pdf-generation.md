@@ -1,162 +1,58 @@
-# PDF Generation
+# PDF and DOCX output
 
-GrantKit generates NSF-compliant PDFs with proper fonts, margins, and formatting.
+`grantkit build` compiles your responses into one document. PDF and DOCX are
+optional formats behind extras.
 
-## Quick Start
-
-```bash
-grantkit pdf --output proposal.pdf
-```
-
-## Requirements
-
-PDF generation requires additional dependencies:
+## Quick start
 
 ```bash
-pip install grantkit[pdf]
+pip install "grantkit[pdf]"      # PDF (WeasyPrint)
+pip install "grantkit[docx]"     # DOCX (python-docx)
+
+grantkit build --format pdf --output proposal.pdf
+grantkit build --format docx --output proposal.docx
 ```
 
-This installs:
-- **WeasyPrint**: HTML-to-PDF rendering
-- **Pygments**: Code syntax highlighting
+If the extra isn't installed, `build` prints an actionable message and exits
+with code `2` rather than a stack trace.
 
-Check your setup:
+## How it works
 
-```bash
-grantkit pdf-capabilities
-```
+`build` assembles every section (in `grant.yaml` order) into a single styled
+HTML document, then renders it to PDF with WeasyPrint or to DOCX with
+python-docx. For plain-text portals (`accepts_markdown: false`) it strips
+Markdown so the output matches what the portal will accept.
 
-## NSF Formatting Rules
+For deep NSF PAPPG PDF compliance (embedded fonts, precise margins, separated
+references) the lower-level `grantkit.pdf.PDFGenerator` pipeline is retained
+and available programmatically.
 
-GrantKit enforces NSF PAPPG requirements:
+## Page limits
 
-| Requirement | GrantKit Default |
-|-------------|------------------|
-| Font size | 11pt body, 10pt figures |
-| Font family | Times New Roman, Computer Modern |
-| Margins | 1 inch all sides |
-| Line spacing | Single-spaced |
-| Page size | 8.5" × 11" (US Letter) |
+`grantkit check` flags sections whose estimated page count exceeds their
+`page_limit` (rule `page_limit_estimate_exceeded`). The estimate is a rough
+words-per-page heuristic — always confirm the exact page count in the built
+PDF before submitting.
 
-## Usage
+## Citations
 
-### Basic PDF
-
-```bash
-grantkit pdf
-```
-
-Generates `proposal.pdf` from your markdown sections.
-
-### Custom Output
-
-```bash
-grantkit pdf --output my-proposal.pdf
-```
-
-### Check Page Counts
-
-```bash
-grantkit check-pages
-```
-
-Output:
-
-```
-Page Count Summary
-==================
-Project Summary:     1 / 1  [OK]
-Project Description: 12 / 15 [OK]
-References:          3 / -  [OK]
-Bio Sketches:        6 / 9  [OK] (3 people × 3 pages)
-Budget Justification: 4 / 5  [OK]
-
-Total: 26 pages
-```
-
-## Document Structure
-
-GrantKit assembles PDFs from your project structure:
-
-```
-my-proposal/
-├── sections/
-│   ├── 01-summary.md
-│   ├── 02-description.md
-│   ├── 03-references.md
-│   └── 04-bio-sketches.md
-├── budget/
-│   └── justification.md
-└── proposal.yaml
-```
-
-## Citations and Bibliography
-
-GrantKit supports BibTeX citations:
-
-**In your markdown:**
-
-```markdown
-Previous work has shown significant effects [@smith2023; @jones2024].
-```
-
-**references.bib:**
-
-```bibtex
-@article{smith2023,
-  author = {Smith, Jane},
-  title = {Policy Effects Analysis},
-  journal = {Journal of Policy},
-  year = {2023}
-}
-```
-
-Run citation check:
-
-```bash
-grantkit check-citations
-```
-
-## Export Formats
-
-Besides PDF, you can export to DOCX:
-
-```bash
-grantkit export --format docx --output proposal.docx
-```
-
-Useful for collaborators who prefer Word.
+Citations use pandoc-style `[@key]` syntax resolved against `references.bib`.
+`grantkit check` reports any `[@key]` with no matching entry
+(`unresolved_citation`). See [Citation management](citations.md).
 
 ## Troubleshooting
 
-### WeasyPrint Not Found
-
-```bash
-pip install weasyprint
-```
-
-On macOS, you may also need:
-
-```bash
-brew install pango
-```
-
-### Font Issues
-
-Install standard fonts:
+**WeasyPrint won't import.** WeasyPrint needs system libraries in addition to
+the Python package:
 
 ```bash
 # macOS
-brew install --cask font-computer-modern
+brew install pango
 
 # Ubuntu
-sudo apt-get install fonts-cmu
+sudo apt-get install libpango-1.0-0 libpangocairo-1.0-0
 ```
 
-### Check Capabilities
-
-```bash
-grantkit pdf-capabilities
-```
-
-Shows which PDF features are available and any missing dependencies.
+**Fonts.** Install standard serif fonts (e.g. `fonts-cmu` on Ubuntu,
+`font-computer-modern` via Homebrew) for the closest match to NSF's expected
+typography.
