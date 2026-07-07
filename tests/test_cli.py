@@ -4,6 +4,7 @@ import json
 
 from click.testing import CliRunner
 
+from grantkit import __version__
 from grantkit.cli import main
 
 
@@ -67,7 +68,7 @@ def test_status_json_writes_file(tmp_path):
     assert result.exit_code == 0
     assert (tmp_path / "status.json").exists()
     payload = json.loads(result.output)
-    assert payload["grantkit_version"] == "0.2.0"
+    assert payload["grantkit_version"] == __version__
 
 
 def test_build_share_via_cli(tmp_path):

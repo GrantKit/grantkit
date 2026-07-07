@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from grantkit import __version__
 from grantkit.core.builder import build_project
 from grantkit.core.project import GrantProject
 
@@ -93,7 +94,7 @@ def test_build_always_writes_status_json(make_grant, simple_config):
     )
     result = build_project(project, fmt="md")
     status = json.loads(result.status_path.read_text())
-    assert status["grantkit_version"] == "0.2.0"
+    assert status["grantkit_version"] == __version__
     assert "checks" in status
 
 

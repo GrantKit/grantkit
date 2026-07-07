@@ -4,6 +4,8 @@ import asyncio
 
 import pytest
 
+from grantkit import __version__
+
 pytest.importorskip("mcp")
 
 from grantkit.core.scaffold import init_project  # noqa: E402
@@ -25,7 +27,7 @@ def test_grant_status_tool_runs(tmp_path):
     # FastMCP returns (content, structured) across versions; the structured
     # payload (a dict) is what we assert on.
     structured = _structured(result)
-    assert structured["grantkit_version"] == "0.2.0"
+    assert structured["grantkit_version"] == __version__
     assert "checks" in structured
 
 

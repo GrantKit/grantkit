@@ -3,6 +3,7 @@
 import json
 from datetime import date, timedelta
 
+from grantkit import __version__
 from grantkit.core.project import GrantProject
 from grantkit.core.status import (
     build_status,
@@ -46,7 +47,7 @@ def test_status_top_level_contract(make_grant, simple_config):
         },
     )
     assert set(status) == TOP_LEVEL_KEYS
-    assert status["grantkit_version"] == "0.2.0"
+    assert status["grantkit_version"] == __version__
     assert isinstance(status["generated_at"], str)
     assert set(status["grant"]) == GRANT_KEYS
     assert set(status["completion"]) == COMPLETION_KEYS
