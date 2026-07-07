@@ -1,104 +1,92 @@
-# Getting Started
+# Getting started
 
-This guide walks you through installing GrantKit and syncing your first grant proposal.
+This guide walks you from an empty directory to a linted, compiled proposal.
 
 ## Installation
 
 ```bash
-pip install grantkit
+pip install grantkit          # core engine
+pip install "grantkit[pdf]"   # optional: PDF output (WeasyPrint)
+pip install "grantkit[docx]"  # optional: DOCX output (python-docx)
 ```
 
-## Prerequisites
+GrantKit requires Python 3.12 or later.
 
-- Python 3.10 or higher
-- A Supabase project with grants data (or use GrantKit's hosted instance)
-
-## Quick Start
-
-### 1. Set up your Supabase connection
+## 1. Scaffold a project
 
 ```bash
-export GRANTKIT_SUPABASE_URL="https://your-project.supabase.co"
-export GRANTKIT_SUPABASE_KEY="your-anon-key"
+grantkit init --funder nuffield-rda
 ```
 
-Or create a `.grantkit.yaml` config file:
-
-```yaml
-supabase:
-  url: https://your-project.supabase.co
-  key: your-anon-key
-```
-
-### 2. Pull grants to local files
-
-```bash
-grantkit sync pull
-```
-
-This creates a directory structure like:
+This writes a self-contained project:
 
 ```
-my-grants/
-├── nsf-cssi/
-│   ├── grant.yaml
-│   └── responses/
-│       ├── abstract.md
-│       ├── broader_impacts.md
-│       └── technical_approach.md
-├── arnold-foundation/
+my-grant/
+├── grant.yaml            # funder, program, deadline, section table
+├── responses/            # one Markdown file per section
+│   ├── project_summary.md
 │   └── ...
+├── budget.yaml           # empty, arithmetically-consistent skeleton
+└── references.bib        # empty BibTeX file
 ```
 
-### 3. Edit with AI tools
+Sections, word limits, spelling locale, and portal behaviour all come from the
+funder rule pack. Run `grantkit init` without `--funder` for a generic
+two-section skeleton.
 
-Open the project in your editor and use Claude Code, Cursor, or any AI tool:
+## 2. Write
 
-```bash
-claude "improve the broader impacts section to emphasize open source benefits"
-```
-
-### 4. Validate your proposal
-
-```bash
-grantkit validate
-```
-
-This checks NSF compliance rules like page limits, formatting requirements, and prohibited content.
-
-### 5. Push changes back
-
-```bash
-grantkit sync push
-```
-
-Or watch for changes and auto-sync:
-
-```bash
-grantkit sync watch
-```
-
-## Response File Format
-
-Each response is a markdown file with YAML frontmatter:
+Each response is a Markdown file with optional YAML frontmatter (frontmatter is
+ignored by the linter and the word count):
 
 ```markdown
 ---
-title: Broader Impacts
-key: broader_impacts
-word_limit: 2500
+title: Project Summary
+word_limit: 250
 status: draft
 ---
 
-# Broader Impacts
-
-PolicyEngine democratizes policy analysis by providing free,
-open-source tools that enable researchers, journalists, and
-policymakers to understand the effects of tax and benefit reforms.
+PolicyEngine democratizes policy analysis with free, open-source tools...
 ```
 
-## Next Steps
+Edit these with your editor or an AI agent:
 
-- [CLI Reference](cli/overview.md) - Full command documentation
-- [Salary Validation](features/salary-validation.md) - Check salaries against BLS data
-- [NSF Validation](cli/validation.md) - Compliance checking details
+```bash
+claude "draft responses/b_case_for_importance.md from our repo README"
+```
+
+## 3. Check
+
+```bash
+grantkit check
+```
+
+The linter reports errors and warnings — required sections, word/char/page
+limits, placeholder text, citation resolution, budget arithmetic and funder
+caps, funder formatting rules, and spelling locale. It exits non-zero on
+errors (add `--strict` to fail on warnings too, or `--urls` to also verify
+links resolve).
+
+## 4. Track status
+
+```bash
+grantkit status            # human table + deadline countdown
+grantkit status --json     # writes status.json (machine-readable)
+```
+
+## 5. Build
+
+```bash
+grantkit build --format pdf --share
+```
+
+`build` assembles every response into one document (`md`, `html`, `pdf`, or
+`docx`). For plain-text portals it emits labelled copy blocks to paste box by
+box. `--share` also writes a self-contained `assembled.html` review page, and
+every build refreshes `status.json`.
+
+## Next steps
+
+- [CLI reference](cli/overview.md)
+- [Funder rule packs](packs.md) — including how to contribute one
+- [Artifacts and the status.json contract](artifacts.md)

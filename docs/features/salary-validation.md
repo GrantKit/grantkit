@@ -12,59 +12,26 @@ NSF and other funders scrutinize personnel costs. Salaries significantly above m
 
 GrantKit compares your proposed salaries to national and regional wage percentiles, flagging potential issues before submission.
 
-## Usage
+## How it runs
 
-### Single Salary Check
-
-```bash
-grantkit check-salaries --salary 150000 --occupation software_developer
-```
-
-Output:
-
-```
-Salary Validation: Software Developer
-=====================================
-Proposed: $150,000/year
-Area: National
-
-OEWS Wage Distribution:
-  10th percentile: $70,210
-  25th percentile: $92,450
-  50th percentile: $120,730
-  75th percentile: $151,960
-  90th percentile: $168,570
-
-Your salary: 74th percentile
-
-Status: OK
-The proposed salary is within normal range.
-```
-
-### With Geographic Area
+Salary validation runs as part of `grantkit check` — but only when a
+`BLS_API_KEY` is set in the environment, because it makes network calls to the
+BLS API. Without a key, `check` skips it entirely and stays offline.
 
 ```bash
-grantkit check-salaries --salary 180000 --occupation software_developer --area san_francisco
+export BLS_API_KEY="your-key-here"   # https://www.bls.gov/developers/
+grantkit check
 ```
 
-San Francisco wages are higher than national averages, so the same salary may be at a different percentile.
+Personnel are read from your `budget.yaml` (`personnel.senior_key`). Each
+person may carry an `occupation` (a SOC code or a supported name), `months`,
+and `area`; GrantKit annualizes the salary and estimates its OEWS percentile.
+Findings surface as check items:
 
-### Annualized Salaries
+- `salary_above_market` (error) — above the 95th percentile.
+- `salary_market_check` (warning) — above the 75th or below the 10th.
 
-For partial-year appointments (common for PIs):
-
-```bash
-# PI at $45,000 for 3 months = $180,000 annualized
-grantkit check-salaries --salary 45000 --months 3 --occupation cs_professor
-```
-
-### From Budget File
-
-Validate all personnel in your budget:
-
-```bash
-grantkit check-salaries --from-budget
-```
+For ad-hoc checks outside a grant, use the programmatic API below.
 
 ## Supported Occupations
 

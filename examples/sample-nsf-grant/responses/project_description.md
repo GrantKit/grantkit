@@ -1,6 +1,6 @@
 # Project Description
 
-## Introduction
+## Overview
 
 Policy decisions affect millions of households, yet the tools to analyze
 these effects remain inaccessible to most stakeholders. This project

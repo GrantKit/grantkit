@@ -2,29 +2,32 @@
 version: 1
 project:
   title: GrantKit Documentation
-  description: Professional tools for grant proposal assembly, validation, and AI-assisted writing
+  description: The linter and compiler for grant proposals — grants as files, agents bring the AI
   keywords:
     - grants
     - nsf
     - proposal
-    - ai
+    - linter
     - cli
   github: https://github.com/GrantKit/grantkit
   license: MIT
   toc:
     - file: index.md
     - file: getting-started.md
-    - title: CLI Reference
+    - title: CLI reference
       children:
         - file: cli/overview.md
-        - file: cli/sync.md
-        - file: cli/budget.md
-        - file: cli/validation.md
+        - file: cli/check.md
+        - file: cli/build.md
+    - file: packs.md
+    - file: artifacts.md
+    - file: mcp-and-ci.md
     - title: Features
       children:
         - file: features/salary-validation.md
         - file: features/travel-per-diem.md
         - file: features/pdf-generation.md
+        - file: features/citations.md
     - file: api-reference.md
 
 site:

@@ -14,9 +14,11 @@ Use this skill when the user wants to:
 
 ### Step 1: Read the Proposal
 
-First, read the assembled proposal or the individual response files:
-- Look for `assembled_proposal.md` in the grant directory
-- Or read files from `responses/` directory (project_summary.md, project_description.md, etc.)
+Gather the proposal and its funder rubric:
+- Prefer `grantkit review`, which emits a JSON packet with the funder rubric,
+  every section's content, and the current lint results.
+- Or read `proposal.md` (from `grantkit build`), or the individual files in
+  `responses/` (project_summary.md, project_description.md, etc.).
 
 ### Step 2: Identify the NSF Program
 

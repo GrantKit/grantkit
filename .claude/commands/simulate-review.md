@@ -8,10 +8,11 @@ You are helping the user get simulated panel reviews for their NSF grant proposa
 
 ## Instructions
 
-1. First, find and read the grant proposal:
-   - Look for `grant.yaml` in the current directory or parent directories
-   - Read `assembled_proposal.md` if it exists
-   - Otherwise, read files from the `responses/` directory
+1. First, gather the proposal and its funder rubric:
+   - Prefer `grantkit review` — it emits a JSON packet with the funder's
+     assessment rubric, every section's content, and the current lint results.
+   - Otherwise read `grant.yaml`, then `proposal.md` (from `grantkit build`) or
+     the files in `responses/`.
 
 2. Identify the NSF program from `grant.yaml` (e.g., CSSI Elements, POSE, CAREER)
 
