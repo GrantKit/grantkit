@@ -145,15 +145,29 @@ def test_nuffield_pack_matches_reference_values():
 # -- PBIF pack: no invented limits --------------------------------------
 
 
-def test_pbif_pack_has_no_invented_limits():
+def test_pbif_pack_matches_round_2_requirements():
     pack = load_pack("pbif")
-    assert len(pack.sections) == 15
-    # No word/char/page limits were sourced, so none are encoded.
+    # The seven required sections from PBIF's Spring 2026 round-2
+    # instructions to finalists (June 2026), in order.
+    assert [s.id for s in pack.sections] == [
+        "project_roadmap",
+        "team_bios",
+        "impact_metrics",
+        "technical_approach",
+        "responsible_ai",
+        "budget_justification",
+        "partner_documentation",
+    ]
+    assert all(s.required for s in pack.sections)
+    # No word/char/page limits or award caps are published, so none are
+    # encoded — absence of a limit means unknown, not unlimited.
     for section in pack.sections:
         assert section.word_limit is None
         assert section.char_limit is None
+        assert section.page_limit is None
     assert pack.budget_rules is not None
-    assert pack.budget_rules.total_cap is None  # request != cap
+    assert pack.budget_rules.total_cap is None
+    assert pack.review_rubric  # rubric drives `grantkit review`
 
 
 # -- resolution ---------------------------------------------------------

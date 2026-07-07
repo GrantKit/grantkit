@@ -1,113 +1,128 @@
-# Public Benefit Innovation Fund (PBIF) rule pack
+# Public Benefit Innovation Fund (PBIF) rule pack — Spring 2026, Pilot track,
+# round-2 full application (finalists).
 #
-# Provenance: derived from the READ-ONLY reference grant at
-# ~/grantkit-grants/pbif/grant.yaml plus the filenames in its responses/
-# directory (01_executive_summary.md ... 15_financial_viability.md).
+# Provenance: required-section list from PBIF's round-2 instructions to
+# finalists (June 2026). PBIF is administered by the Center for Civic Futures;
+# submissions go through a WizeHive portal. The public site does not publish
+# per-section word limits or an award range, so NONE are encoded here — they
+# are unknown, not zero/unlimited. Do not fill in limits without a sourced
+# value; confirm details against the current call before relying on this pack.
 #
-# IMPORTANT — uncertain fields: the reference grant.yaml has solicitation_url:
-# null and defines no per-section word/character limits, so NONE are encoded
-# here (they are unknown, not zero/unlimited). The spelling locale and portal
-# markdown behaviour could not be sourced and are marked below. Do not treat the
-# absence of a limit as "no limit"; confirm against the current PBIF call before
-# relying on this pack.
-#
-# Source grant metadata (from reference grant.yaml):
-#   foundation: Public Benefit Innovation Fund
-#   program: Summer 2025 Open Call
-#   amount_requested: 700000 (the applicant's request, NOT a fund cap)
-#   duration_years: 2
-#   status: rejected
+# An earlier revision of this pack described the Summer 2025 open call
+# (15 sections, derived from a reference application). Spring 2026 round 2
+# replaced it; see git history if you need the old structure.
 
 id: pbif
 name: Public Benefit Innovation Fund
-program: Summer 2025 Open Call
-source_url: null  # Not available in the reference grant; unknown.
-locale: en-US  # UNCERTAIN — could not be sourced; assumed US English.
+program: Spring 2026 Open Call — Pilot track (round-2 full application)
+version: spring-2026-r2
+source_url: https://www.publicbenefitinnovationfund.org
+locale: en-US
 provenance: >-
-  Section list derived from response filenames in
-  ~/grantkit-grants/pbif/responses/. No word/char limits were available in the
-  reference grant, so none are encoded.
+  Section list taken verbatim from PBIF round-2 instructions to finalists
+  (June 2026): project roadmap, team bios, impact metrics, technical approach,
+  responsible AI approach, budget and funding justification, partner
+  documentation. No word/char limits or award caps are published; none are
+  encoded.
 content_engine: null
 
-# Sections mirror the reference response filenames. Titles are cleaned from the
-# files' frontmatter. word_limit is intentionally omitted (unknown) for every
-# section — do NOT fill these in without a sourced value.
 sections:
-  - id: "01_executive_summary"
-    title: Executive Summary
+  - id: project_roadmap
+    title: Project roadmap
     required: true
-    file: responses/01_executive_summary.md
-  - id: "02_stage_of_development"
-    title: Stage of Development
+    description: >-
+      Milestones and timeline for the pilot period, including go/no-go
+      decision points.
+    file: responses/project_roadmap.md
+  - id: team_bios
+    title: Team bios
     required: true
-    file: responses/02_stage_of_development.md
-  - id: "03_problem_statement"
-    title: Problem Statement
+    description: Who will do the work and why they are qualified.
+    file: responses/team_bios.md
+  - id: impact_metrics
+    title: Impact metrics
     required: true
-    file: responses/03_problem_statement.md
-  - id: "04_solution_beneficiaries"
-    title: Solution and Beneficiaries
+    description: >-
+      What will be measured, target magnitudes, and how progress is evaluated.
+    file: responses/impact_metrics.md
+  - id: technical_approach
+    title: Technical approach
     required: true
-    file: responses/04_solution_beneficiaries.md
-  - id: "05_impact_evaluation"
-    title: Impact Evaluation
+    description: >-
+      Architecture, technical choices already made, and choices anticipated
+      during the pilot.
+    file: responses/technical_approach.md
+  - id: responsible_ai
+    title: Responsible AI approach
     required: true
-    file: responses/05_impact_evaluation.md
-  - id: "06_responsible_design"
-    title: Responsible Design
+    description: >-
+      How AI is used, where humans stay in the loop, and how risks are
+      mitigated.
+    file: responses/responsible_ai.md
+  - id: budget_justification
+    title: Budget and funding justification
     required: true
-    file: responses/06_responsible_design.md
-  - id: "07_adoption_scale"
-    title: Adoption and Scale
+    description: Budget, justification, and how grant funds fit overall funding.
+    file: responses/budget_justification.md
+  - id: partner_documentation
+    title: Partner documentation
     required: true
-    file: responses/07_adoption_scale.md
-  - id: "08_dissemination_learning"
-    title: Dissemination and Learning
-    required: true
-    file: responses/08_dissemination_learning.md
-  - id: "09_solution_description"
-    title: Solution Description
-    required: true
-    file: responses/09_solution_description.md
-  - id: "10_data_sources"
-    title: Data Sources
-    required: true
-    file: responses/10_data_sources.md
-  - id: "11_data_management"
-    title: Data Management
-    required: true
-    file: responses/11_data_management.md
-  - id: "12_stakeholder_engagement"
-    title: Stakeholder Engagement
-    required: true
-    file: responses/12_stakeholder_engagement.md
-  - id: "13_resources_infrastructure"
-    title: Resources and Infrastructure
-    required: true
-    file: responses/13_resources_infrastructure.md
-  - id: "14_scalability_sustainability"
-    title: Scalability and Sustainability
-    required: true
-    file: responses/14_scalability_sustainability.md
-  - id: "15_financial_viability"
-    title: Financial Viability
-    required: true
-    file: responses/15_financial_viability.md
+    description: >-
+      Letters of commitment or MOUs demonstrating partnerships solid enough to
+      get started (signed contracts not required).
+    file: responses/partner_documentation.md
 
-formatting_rules: []  # No formatting rules could be sourced for PBIF.
+formatting_rules: []  # No formatting rules are published for the WizeHive portal.
 
 budget_rules:
-  total_cap: null  # UNKNOWN — the reference grant's 700000 is a request, not a cap.
+  total_cap: null  # Pilot-track award range not published as of June 2026.
   annual_cap: null
   indirect_rate_max: null
-  currency: USD  # UNCERTAIN.
+  currency: USD
   notes: >-
-    The reference application requested USD 700,000 over 2 years; this is the
-    applicant's ask, not a published fund cap. Actual caps are unknown.
+    No award range is published for the Pilot track; size the budget to the
+    scope and confirm the range with program staff before submission.
 
 portal:
-  accepts_markdown: true  # UNCERTAIN — could not be sourced; assumed true.
+  accepts_markdown: true  # UNCERTAIN — WizeHive form behaviour not confirmed.
   plain_text_boxes: false
-  url: null
+  url: null  # WizeHive portal link is provided per-applicant.
+  notes: Submission via WizeHive; confirm field formats before final paste.
 
-review_rubric: []  # No published rubric could be sourced for PBIF.
+review_rubric:
+  - id: roadmap_feasibility
+    name: Roadmap feasibility
+    description: >-
+      Is the pilot roadmap achievable as scoped — tight, high-confidence
+      commitments rather than breadth?
+  - id: team_capacity
+    name: Team capacity
+    description: Does the team have the skills and time to deliver the pilot?
+  - id: measurable_impact
+    name: Measurable impact
+    description: >-
+      Are impact metrics concrete, with target magnitudes and a credible
+      evaluation plan?
+  - id: technical_soundness
+    name: Technical soundness
+    description: >-
+      Is the architecture sound, and are technical choices (made and
+      anticipated) well justified?
+  - id: necessity_of_ai
+    name: Necessity of AI
+    description: >-
+      Why is AI essential to the approach rather than conventional software —
+      and is its role clearly bounded?
+  - id: responsible_ai
+    name: Responsible AI
+    description: >-
+      Are AI risks identified and mitigated, with humans in the loop where it
+      matters?
+  - id: budget_realism
+    name: Budget realism
+    description: Is the budget right-sized to the scope and justified line by line?
+  - id: partnership_strength
+    name: Partnership strength
+    description: >-
+      Is partner documentation solid enough to start work — commitment, not
+      intent?
