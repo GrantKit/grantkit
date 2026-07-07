@@ -42,7 +42,14 @@ PLACEHOLDER_PATTERNS: list[re.Pattern] = [
 ]
 
 # Legacy funder keys whose nested `sections` we still understand.
-_LEGACY_FUNDER_KEYS = ["nsf", "arnold", "pritzker", "gitlab", "neo", "nuffield"]
+_LEGACY_FUNDER_KEYS = [
+    "nsf",
+    "arnold",
+    "pritzker",
+    "gitlab",
+    "neo",
+    "nuffield",
+]
 
 
 def find_placeholders(text: str) -> list[str]:
@@ -187,7 +194,12 @@ class GrantProject:
             section = SectionState(
                 id=sid,
                 title=title,
-                file=file_rel or (str(path.relative_to(self.root)) if path.exists() and self._is_within_root(path) else None),
+                file=file_rel
+                or (
+                    str(path.relative_to(self.root))
+                    if path.exists() and self._is_within_root(path)
+                    else None
+                ),
                 path=path,
                 required=bool(raw.get("required", True)),
                 word_limit=raw.get("word_limit"),

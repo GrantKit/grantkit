@@ -220,7 +220,10 @@ class NSFValidator:
                     grant_meta = yaml.safe_load(f) or {}
                 foundation = grant_meta.get("foundation", "").lower()
                 # Return True only if this specific grant is NSF
-                return "nsf" in foundation or "national science foundation" in foundation
+                return (
+                    "nsf" in foundation
+                    or "national science foundation" in foundation
+                )
             except Exception:
                 pass
 
@@ -235,7 +238,10 @@ class NSFValidator:
                 with open(grant_file) as f:
                     grant_meta = yaml.safe_load(f) or {}
                 foundation = grant_meta.get("foundation", "").lower()
-                if "nsf" in foundation or "national science foundation" in foundation:
+                if (
+                    "nsf" in foundation
+                    or "national science foundation" in foundation
+                ):
                     return True
             except Exception:
                 pass
@@ -452,8 +458,10 @@ class NSFValidator:
             for url in url_matches:
                 # Filter out NSF-only restrictions for non-NSF grants
                 applicable_prohibited = [
-                    p for p in self.PROHIBITED_URLS
-                    if self.is_nsf_grant or p not in self.NSF_ONLY_PROHIBITED_URLS
+                    p
+                    for p in self.PROHIBITED_URLS
+                    if self.is_nsf_grant
+                    or p not in self.NSF_ONLY_PROHIBITED_URLS
                 ]
                 if any(
                     prohibited in url.lower()
@@ -731,7 +739,10 @@ class NSFValidator:
         # Check if explicitly prohibited
         for prohibited_domain in self.PROHIBITED_URLS:
             # Skip NSF-only restrictions for non-NSF grants
-            if not self.is_nsf_grant and prohibited_domain in self.NSF_ONLY_PROHIBITED_URLS:
+            if (
+                not self.is_nsf_grant
+                and prohibited_domain in self.NSF_ONLY_PROHIBITED_URLS
+            ):
                 continue
 
             if prohibited_domain in url_lower:

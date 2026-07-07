@@ -215,7 +215,9 @@ class FunderPack:
 
 
 def _is_int_or_none(value: Any) -> bool:
-    return value is None or (isinstance(value, int) and not isinstance(value, bool))
+    return value is None or (
+        isinstance(value, int) and not isinstance(value, bool)
+    )
 
 
 def _is_number_or_none(value: Any) -> bool:
@@ -282,7 +284,9 @@ def validate_pack(data: Any) -> list[str]:
             if "required" in section and not isinstance(
                 section["required"], bool
             ):
-                errors.append(f"{where} ('{sid}') 'required' must be a boolean")
+                errors.append(
+                    f"{where} ('{sid}') 'required' must be a boolean"
+                )
 
     # Formatting rules
     rules = data.get("formatting_rules", [])
@@ -297,7 +301,9 @@ def validate_pack(data: Any) -> list[str]:
             if not rule.get("id"):
                 errors.append(f"{where} missing 'id'")
             if not rule.get("description"):
-                errors.append(f"{where} ('{rule.get('id')}') missing 'description'")
+                errors.append(
+                    f"{where} ('{rule.get('id')}') missing 'description'"
+                )
             severity = rule.get("severity", "error")
             if severity not in VALID_SEVERITIES:
                 errors.append(
@@ -313,7 +319,9 @@ def validate_pack(data: Any) -> list[str]:
         else:
             for key in ("total_cap", "annual_cap", "indirect_rate_max"):
                 if not _is_number_or_none(budget.get(key)):
-                    errors.append(f"budget_rules.{key} must be a number or null")
+                    errors.append(
+                        f"budget_rules.{key} must be a number or null"
+                    )
             if budget.get("mtdc_excludes") is not None and not isinstance(
                 budget.get("mtdc_excludes"), list
             ):

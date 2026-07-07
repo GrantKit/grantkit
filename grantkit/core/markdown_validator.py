@@ -7,7 +7,7 @@ when the grant requires plain text (accepts_markdown: false in grant.yaml).
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import yaml
 
@@ -50,7 +50,11 @@ class MarkdownContentValidator:
         (r"\*\*[^*]+\*\*", "bold", "Markdown bold text"),
         (r"__[^_]+__", "bold", "Markdown bold text"),
         # Italic text - *text* or _text_ (but not in URLs or normal underscores)
-        (r"(?<!\*)\*[^*\s][^*]*[^*\s]\*(?!\*)", "italic", "Markdown italic/emphasis"),
+        (
+            r"(?<!\*)\*[^*\s][^*]*[^*\s]\*(?!\*)",
+            "italic",
+            "Markdown italic/emphasis",
+        ),
         # Links - [text](url)
         (r"\[[^\]]+\]\([^)]+\)", "link", "Markdown link syntax"),
         # Code blocks - ```
@@ -79,7 +83,9 @@ class MarkdownContentValidator:
         self.accepts_markdown = accepts_markdown
 
     @classmethod
-    def from_grant_yaml(cls, grant_yaml_path: Path) -> "MarkdownContentValidator":
+    def from_grant_yaml(
+        cls, grant_yaml_path: Path
+    ) -> "MarkdownContentValidator":
         """Create validator from grant.yaml configuration.
 
         Args:
@@ -162,7 +168,9 @@ class MarkdownContentValidator:
             passed=len(all_violations) == 0, violations=all_violations
         )
 
-    def validate_grant_directory(self, grant_root: Path) -> MarkdownValidationResult:
+    def validate_grant_directory(
+        self, grant_root: Path
+    ) -> MarkdownValidationResult:
         """Validate a grant directory using its grant.yaml configuration.
 
         Args:
