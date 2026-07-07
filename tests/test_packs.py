@@ -147,27 +147,37 @@ def test_nuffield_pack_matches_reference_values():
 
 def test_pbif_pack_matches_round_2_requirements():
     pack = load_pack("pbif")
-    # The seven required sections from PBIF's Spring 2026 round-2
-    # instructions to finalists (June 2026), in order.
+    # The six narrative sections from PBIF's Spring 2026 round-2 application
+    # materials, in order.
     assert [s.id for s in pack.sections] == [
-        "project_roadmap",
-        "team_bios",
-        "impact_metrics",
-        "technical_approach",
-        "responsible_ai",
-        "budget_justification",
-        "partner_documentation",
+        "impact",
+        "catalytic_rationale",
+        "technical_feasibility",
+        "practical_feasibility",
+        "responsible_deployment",
+        "scaling",
     ]
     assert all(s.required for s in pack.sections)
-    # No word/char/page limits or award caps are published, so none are
-    # encoded — absence of a limit means unknown, not unlimited.
+    # The 8-page limit applies to the combined narrative, so it lives in
+    # formatting_rules, not per-section limits. No per-section word limits
+    # are published — absence of a limit means unknown, not unlimited.
     for section in pack.sections:
         assert section.word_limit is None
         assert section.char_limit is None
         assert section.page_limit is None
+    assert any(r.id == "narrative_page_limit" for r in pack.formatting_rules)
+    # Pilot track: up to $2M, indirect capped at 10%.
     assert pack.budget_rules is not None
-    assert pack.budget_rules.total_cap is None
-    assert pack.review_rubric  # rubric drives `grantkit review`
+    assert pack.budget_rules.total_cap == 2000000
+    assert pack.budget_rules.indirect_rate_max == 0.10
+    # Official five-criterion reviewer rubric drives `grantkit review`.
+    assert [c.id for c in pack.review_rubric] == [
+        "impact",
+        "responsible_deployment",
+        "feasibility",
+        "strategic_alignment",
+        "shared_learning",
+    ]
 
 
 # -- resolution ---------------------------------------------------------

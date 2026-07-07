@@ -1,16 +1,17 @@
 # Public Benefit Innovation Fund (PBIF) rule pack — Spring 2026, Pilot track,
 # round-2 full application (finalists).
 #
-# Provenance: required-section list from PBIF's round-2 instructions to
-# finalists (June 2026). PBIF is administered by the Center for Civic Futures;
-# submissions go through a WizeHive portal. The public site does not publish
-# per-section word limits or an award range, so NONE are encoded here — they
-# are unknown, not zero/unlimited. Do not fill in limits without a sourced
-# value; confirm details against the current call before relying on this pack.
+# Provenance: PBIF round-2 application materials for Spring 2026 applicants
+# (June 2026). PBIF is administered by the Center for Civic Futures;
+# submissions go through a WizeHive portal. The application comprises a
+# project narrative of six sections (limited to eight pages combined), a
+# budget on the provided spreadsheet template (indirect costs capped at 10%),
+# a milestone plan on the provided template, and attachments (team bios,
+# diagrams, partner MOUs / letters of support).
 #
-# An earlier revision of this pack described the Summer 2025 open call
-# (15 sections, derived from a reference application). Spring 2026 round 2
-# replaced it; see git history if you need the old structure.
+# Per-section word limits are not published, so none are encoded — absence of
+# a limit means unknown, not unlimited. Confirm details against the current
+# call before relying on this pack.
 
 id: pbif
 name: Public Benefit Innovation Fund
@@ -19,69 +20,94 @@ version: spring-2026-r2
 source_url: https://www.publicbenefitinnovationfund.org
 locale: en-US
 provenance: >-
-  Section list taken verbatim from PBIF round-2 instructions to finalists
-  (June 2026): project roadmap, team bios, impact metrics, technical approach,
-  responsible AI approach, budget and funding justification, partner
-  documentation. No word/char limits or award caps are published; none are
-  encoded.
+  Narrative structure, page limit, budget rules, and reviewer rubric from PBIF
+  round-2 application materials for Spring 2026 applicants (June 2026).
+  Pilot-track awards up to USD 2,000,000; indirect costs capped at 10%;
+  narrative limited to 8 pages across six sections. No per-section word
+  limits are published; none are encoded.
 content_engine: null
 
+# The six narrative sections. The 8-page limit applies to the narrative as a
+# whole, not per section, so it is encoded as a formatting rule below rather
+# than as per-section page limits.
 sections:
-  - id: project_roadmap
-    title: Project roadmap
+  - id: impact
+    title: Impact
     required: true
     description: >-
-      Milestones and timeline for the pilot period, including go/no-go
-      decision points.
-    file: responses/project_roadmap.md
-  - id: team_bios
-    title: Team bios
-    required: true
-    description: Who will do the work and why they are qualified.
-    file: responses/team_bios.md
-  - id: impact_metrics
-    title: Impact metrics
+      The problem, who benefits, and the magnitude of improvement the pilot
+      targets.
+    file: responses/impact.md
+  - id: catalytic_rationale
+    title: Catalytic rationale
     required: true
     description: >-
-      What will be measured, target magnitudes, and how progress is evaluated.
-    file: responses/impact_metrics.md
-  - id: technical_approach
-    title: Technical approach
+      Why philanthropic funding is catalytic here — what it unlocks that would
+      not otherwise happen.
+    file: responses/catalytic_rationale.md
+  - id: technical_feasibility
+    title: Technical feasibility
     required: true
     description: >-
-      Architecture, technical choices already made, and choices anticipated
-      during the pilot.
-    file: responses/technical_approach.md
-  - id: responsible_ai
-    title: Responsible AI approach
+      Architecture, technical choices already made and anticipated, and
+      evidence the approach works.
+    file: responses/technical_feasibility.md
+  - id: practical_feasibility
+    title: Practical feasibility
     required: true
     description: >-
-      How AI is used, where humans stay in the loop, and how risks are
-      mitigated.
-    file: responses/responsible_ai.md
-  - id: budget_justification
-    title: Budget and funding justification
-    required: true
-    description: Budget, justification, and how grant funds fit overall funding.
-    file: responses/budget_justification.md
-  - id: partner_documentation
-    title: Partner documentation
+      Team, partners, and delivery plan — evidence the pilot can be executed
+      as scoped.
+    file: responses/practical_feasibility.md
+  - id: responsible_deployment
+    title: Responsible deployment
     required: true
     description: >-
-      Letters of commitment or MOUs demonstrating partnerships solid enough to
-      get started (signed contracts not required).
-    file: responses/partner_documentation.md
+      How AI is used and bounded, where humans stay in the loop, and how risks
+      are mitigated.
+    file: responses/responsible_deployment.md
+  - id: scaling
+    title: Scaling
+    required: true
+    description: >-
+      The path from pilot to broad adoption, including sustainability beyond
+      the grant.
+    file: responses/scaling.md
 
-formatting_rules: []  # No formatting rules are published for the WizeHive portal.
+formatting_rules:
+  - id: narrative_page_limit
+    description: >-
+      The project narrative (all six sections combined) must not exceed 8
+      pages.
+    severity: warning
+    citation: PBIF Spring 2026 round-2 application materials
+  - id: budget_template_required
+    description: >-
+      The budget must be submitted on the provided spreadsheet template, with
+      indirect costs at or below 10%.
+    severity: info
+    citation: PBIF Spring 2026 round-2 application materials
+  - id: milestone_template_required
+    description: >-
+      The milestone plan must be submitted on the provided document template.
+    severity: info
+    citation: PBIF Spring 2026 round-2 application materials
+  - id: attachments_required
+    description: >-
+      Required attachments: team bios, diagrams as needed, and partner
+      documentation (MOUs or letters of support) demonstrating partnerships
+      solid enough to get started.
+    severity: info
+    citation: PBIF Spring 2026 round-2 application materials
 
 budget_rules:
-  total_cap: null  # Pilot-track award range not published as of June 2026.
+  total_cap: 2000000  # Pilot-track awards are "up to $2M".
   annual_cap: null
-  indirect_rate_max: null
+  indirect_rate_max: 0.10
   currency: USD
   notes: >-
-    No award range is published for the Pilot track; size the budget to the
-    scope and confirm the range with program staff before submission.
+    Pilot track funds up to USD 2,000,000 total; indirect costs are capped at
+    10%. Budget must use the provided spreadsheet template.
 
 portal:
   accepts_markdown: true  # UNCERTAIN — WizeHive form behaviour not confirmed.
@@ -89,40 +115,32 @@ portal:
   url: null  # WizeHive portal link is provided per-applicant.
   notes: Submission via WizeHive; confirm field formats before final paste.
 
+# Official reviewer rubric for Spring 2026 round 2.
 review_rubric:
-  - id: roadmap_feasibility
-    name: Roadmap feasibility
+  - id: impact
+    name: Impact
     description: >-
-      Is the pilot roadmap achievable as scoped — tight, high-confidence
-      commitments rather than breadth?
-  - id: team_capacity
-    name: Team capacity
-    description: Does the team have the skills and time to deliver the pilot?
-  - id: measurable_impact
-    name: Measurable impact
+      Scale and significance of the improvement to public benefit delivery.
+    citation: PBIF Spring 2026 round-2 reviewer rubric
+  - id: responsible_deployment
+    name: Responsible deployment
     description: >-
-      Are impact metrics concrete, with target magnitudes and a credible
-      evaluation plan?
-  - id: technical_soundness
-    name: Technical soundness
+      AI used safely and accountably, with humans in the loop where it
+      matters.
+    citation: PBIF Spring 2026 round-2 reviewer rubric
+  - id: feasibility
+    name: Feasibility
     description: >-
-      Is the architecture sound, and are technical choices (made and
-      anticipated) well justified?
-  - id: necessity_of_ai
-    name: Necessity of AI
+      Technical and practical achievability of the pilot as scoped — tight,
+      high-confidence commitments over breadth.
+    citation: PBIF Spring 2026 round-2 reviewer rubric
+  - id: strategic_alignment
+    name: Strategic alignment
+    description: Fit with PBIF's goals for AI in public benefit delivery.
+    citation: PBIF Spring 2026 round-2 reviewer rubric
+  - id: shared_learning
+    name: Shared learning
     description: >-
-      Why is AI essential to the approach rather than conventional software —
-      and is its role clearly bounded?
-  - id: responsible_ai
-    name: Responsible AI
-    description: >-
-      Are AI risks identified and mitigated, with humans in the loop where it
-      matters?
-  - id: budget_realism
-    name: Budget realism
-    description: Is the budget right-sized to the scope and justified line by line?
-  - id: partnership_strength
-    name: Partnership strength
-    description: >-
-      Is partner documentation solid enough to start work — commitment, not
-      intent?
+      Commitment to documenting and disseminating what the pilot learns,
+      including what fails.
+    citation: PBIF Spring 2026 round-2 reviewer rubric
