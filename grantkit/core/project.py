@@ -39,6 +39,10 @@ PLACEHOLDER_PATTERNS: list[re.Pattern] = [
     re.compile(r"(?<![A-Za-z])TBD(?![A-Za-z])"),
     re.compile(r"(?<![A-Za-z])FIXME(?![A-Za-z])"),
     re.compile(r"(?<![A-Za-z])XXX(?![A-Za-z])"),
+    # Bracketed directives naming a person or action, e.g. [MAX: phone
+    # number], [AK: confirm], and the [NEED INPUT] convention.
+    re.compile(r"\[[A-Z]{2,10}:[^\]]{0,100}\]"),
+    re.compile(r"\[\s*need\s+input[^\]]*\]", re.IGNORECASE),
 ]
 
 # Legacy funder keys whose nested `sections` we still understand.
@@ -84,6 +88,10 @@ class SectionState:
     word_limit: Optional[int] = None
     char_limit: Optional[int] = None
     page_limit: Optional[int] = None
+    #: ``prose`` sections are pasted into portal text boxes as a unit;
+    #: ``fields`` sections hold individual form fields (tables of values
+    #: typed one by one), so plain-text portal linting does not apply.
+    format: str = "prose"
     exists: bool = False
     body: str = ""
     words: int = 0
@@ -205,6 +213,11 @@ class GrantProject:
                 word_limit=raw.get("word_limit"),
                 char_limit=raw.get("char_limit"),
                 page_limit=raw.get("page_limit"),
+                format=(
+                    raw["format"]
+                    if raw.get("format") in ("prose", "fields")
+                    else "prose"
+                ),
             )
             self._compute_section(section)
             self.sections.append(section)

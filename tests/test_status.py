@@ -110,7 +110,7 @@ def test_status_checks_items_shape(make_grant, simple_config):
         make_grant,
         config,
         {
-            "responses/summary.md": "# Heading makes a plain-text error",
+            "responses/summary.md": "| a | b |\n|---|---|\n| 1 | 2 |",
             "responses/narrative.md": "plain text ok",
         },
     )

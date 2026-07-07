@@ -139,9 +139,15 @@ def _assemble_plaintext_blocks(project: "GrantProject") -> str:
         "Plain-text portal: paste each block below into its portal box.\n"
     )
     for section in project.sections:
-        body = _to_plaintext(section.body) if section.exists else ""
-        limit = f" / {section.word_limit}" if section.word_limit else ""
-        label = f"{section.title}  ({section.words}{limit} words)"
+        if section.format == "fields":
+            # Individual form fields, typed one by one — keep the source
+            # (tables and all) as an on-screen reference, not a paste block.
+            label = f"{section.title}  (form fields — enter individually)"
+            body = section.body.strip() if section.exists else ""
+        else:
+            body = _to_plaintext(section.body) if section.exists else ""
+            limit = f" / {section.word_limit}" if section.word_limit else ""
+            label = f"{section.title}  ({section.words}{limit} words)"
         parts.append("-" * 70)
         parts.append(label)
         parts.append("-" * 70)
@@ -155,6 +161,7 @@ def _to_plaintext(markdown_text: str) -> str:
     import re
 
     text = markdown_text
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)  # HTML comments
     text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)  # headers
     text = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", text)  # links
     text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)  # bold

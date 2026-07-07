@@ -192,3 +192,23 @@ def test_resolve_pack_by_id_and_name():
 def test_resolve_pack_unknown_returns_none():
     assert resolve_pack("not-a-real-funder-xyz") is None
     assert resolve_pack(None) is None
+
+
+def test_pack_schema_rejects_invalid_section_format():
+    from grantkit.packs.schema import validate_pack
+
+    errors = validate_pack(
+        {
+            "id": "x",
+            "name": "X",
+            "sections": [{"id": "s", "title": "S", "format": "tabular"}],
+        }
+    )
+    assert any("invalid format" in e for e in errors)
+    assert not validate_pack(
+        {
+            "id": "x",
+            "name": "X",
+            "sections": [{"id": "s", "title": "S", "format": "fields"}],
+        }
+    )

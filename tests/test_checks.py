@@ -101,14 +101,15 @@ def test_plain_text_portal_flags_markdown(make_grant, simple_config):
     root = make_grant(
         config,
         {
-            "responses/summary.md": "# A heading\n\nBody text.",
+            # Heading converts cleanly in build -> warning; table doesn't -> error.
+            "responses/summary.md": "# A heading\n\n| a | b |\n|---|---|\n",
             "responses/narrative.md": "Plain text is fine here.",
         },
     )
     result = _run(root)
     md = [i for i in result.items if i.rule == "markdown_in_plain_text"]
-    assert md and all(i.level == "error" for i in md)
-    assert md[0].section == "summary"
+    assert md and all(i.section == "summary" for i in md)
+    assert {i.level for i in md} == {"warning", "error"}
 
 
 def test_spelling_locale_warns(make_grant, simple_config):
@@ -206,3 +207,94 @@ def test_check_item_to_dict_shape():
     d = item.to_dict()
     assert set(d) == {"level", "rule", "message", "section", "citation"}
     assert d["level"] == "error"
+
+
+def test_placeholders_catch_bracketed_directives(tmp_path):
+    from grantkit.core.project import find_placeholders
+
+    text = (
+        "Phone: [MAX: phone number]\n"
+        "Budget: [NEED INPUT]\n"
+        "Bios: [AK: confirm wording]\n"
+        "Not placeholders: [2026 figures](https://example.com) and [@cite2026]."
+    )
+    found = find_placeholders(text)
+    assert "[MAX: phone number]" in found
+    assert "[NEED INPUT]" in found
+    assert "[AK: confirm wording]" in found
+    assert not any("example.com" in f or "@cite" in f for f in found)
+
+
+def _plain_text_project(tmp_path, sections_yaml, files):
+    import yaml as _yaml
+
+    from grantkit.core.project import GrantProject
+
+    (tmp_path / "responses").mkdir(exist_ok=True)
+    for rel, body in files.items():
+        (tmp_path / rel).write_text(body)
+    (tmp_path / "grant.yaml").write_text(
+        _yaml.safe_dump(
+            {
+                "title": "T",
+                "accepts_markdown": False,
+                "sections": sections_yaml,
+            }
+        )
+    )
+    return GrantProject(tmp_path)
+
+
+def test_fields_sections_skip_plain_text_linting(tmp_path):
+    from grantkit.core.checks import run_checks
+
+    project = _plain_text_project(
+        tmp_path,
+        [
+            {
+                "id": "pi",
+                "title": "PI details",
+                "format": "fields",
+                "file": "responses/pi.md",
+            },
+            {"id": "a", "title": "Summary", "file": "responses/a.md"},
+        ],
+        {
+            "responses/pi.md": "| Field | Value |\n|---|---|\n| Name | Max |\n",
+            "responses/a.md": "Plain prose only.\n",
+        },
+    )
+    items = run_checks(project).items
+    md = [i for i in items if i.rule == "markdown_in_plain_text"]
+    assert md == []
+
+
+def test_plain_text_severity_splits_by_convertibility(tmp_path):
+    from grantkit.core.checks import run_checks
+
+    project = _plain_text_project(
+        tmp_path,
+        [{"id": "a", "title": "Summary", "file": "responses/a.md"}],
+        {
+            "responses/a.md": (
+                "Some **bold** claim.\n\n" "| a | b |\n|---|---|\n| 1 | 2 |\n"
+            )
+        },
+    )
+    items = [
+        i
+        for i in run_checks(project).items
+        if i.rule == "markdown_in_plain_text"
+    ]
+    levels = {}
+    for item in items:
+        key = "table" if "convert" in item.message else "inline"
+        levels.setdefault(key, set()).add(item.level)
+    # Bold converts cleanly -> warning; tables survive -> error.
+    assert any(i.level == "warning" for i in items)
+    assert any(i.level == "error" for i in items)
+    for item in items:
+        if item.level == "error":
+            assert "does not convert" in item.message
+        else:
+            assert "paste from the build output" in item.message
