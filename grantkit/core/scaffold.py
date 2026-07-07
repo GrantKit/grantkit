@@ -205,4 +205,5 @@ def _budget_stub(pack: Optional[FunderPack]) -> str:
         "# GrantKit budget. Line items feed `grantkit check` (arithmetic +\n"
         "# funder caps). See docs/artifacts.md for the schema.\n"
     )
-    return header + note + yaml.safe_dump(skeleton, sort_keys=False)
+    body: str = yaml.safe_dump(skeleton, sort_keys=False)
+    return header + note + body

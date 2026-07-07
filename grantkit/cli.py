@@ -124,7 +124,8 @@ def check(as_json: bool, strict: bool, check_urls: bool, path: Path) -> None:
     result = run_checks(project, strict=strict, check_urls=check_urls)
 
     if as_json:
-        console.print_json(json.dumps(result.to_dict()))
+        # Raw stdout so CI / agents capture clean JSON.
+        sys.stdout.write(json.dumps(result.to_dict(), indent=2) + "\n")
     else:
         _print_checks(result)
 
