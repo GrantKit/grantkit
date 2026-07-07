@@ -1,0 +1,113 @@
+# Public Benefit Innovation Fund (PBIF) rule pack
+#
+# Provenance: derived from the READ-ONLY reference grant at
+# ~/grantkit-grants/pbif/grant.yaml plus the filenames in its responses/
+# directory (01_executive_summary.md ... 15_financial_viability.md).
+#
+# IMPORTANT — uncertain fields: the reference grant.yaml has solicitation_url:
+# null and defines no per-section word/character limits, so NONE are encoded
+# here (they are unknown, not zero/unlimited). The spelling locale and portal
+# markdown behaviour could not be sourced and are marked below. Do not treat the
+# absence of a limit as "no limit"; confirm against the current PBIF call before
+# relying on this pack.
+#
+# Source grant metadata (from reference grant.yaml):
+#   foundation: Public Benefit Innovation Fund
+#   program: Summer 2025 Open Call
+#   amount_requested: 700000 (the applicant's request, NOT a fund cap)
+#   duration_years: 2
+#   status: rejected
+
+id: pbif
+name: Public Benefit Innovation Fund
+program: Summer 2025 Open Call
+source_url: null  # Not available in the reference grant; unknown.
+locale: en-US  # UNCERTAIN — could not be sourced; assumed US English.
+provenance: >-
+  Section list derived from response filenames in
+  ~/grantkit-grants/pbif/responses/. No word/char limits were available in the
+  reference grant, so none are encoded.
+content_engine: null
+
+# Sections mirror the reference response filenames. Titles are cleaned from the
+# files' frontmatter. word_limit is intentionally omitted (unknown) for every
+# section — do NOT fill these in without a sourced value.
+sections:
+  - id: "01_executive_summary"
+    title: Executive Summary
+    required: true
+    file: responses/01_executive_summary.md
+  - id: "02_stage_of_development"
+    title: Stage of Development
+    required: true
+    file: responses/02_stage_of_development.md
+  - id: "03_problem_statement"
+    title: Problem Statement
+    required: true
+    file: responses/03_problem_statement.md
+  - id: "04_solution_beneficiaries"
+    title: Solution and Beneficiaries
+    required: true
+    file: responses/04_solution_beneficiaries.md
+  - id: "05_impact_evaluation"
+    title: Impact Evaluation
+    required: true
+    file: responses/05_impact_evaluation.md
+  - id: "06_responsible_design"
+    title: Responsible Design
+    required: true
+    file: responses/06_responsible_design.md
+  - id: "07_adoption_scale"
+    title: Adoption and Scale
+    required: true
+    file: responses/07_adoption_scale.md
+  - id: "08_dissemination_learning"
+    title: Dissemination and Learning
+    required: true
+    file: responses/08_dissemination_learning.md
+  - id: "09_solution_description"
+    title: Solution Description
+    required: true
+    file: responses/09_solution_description.md
+  - id: "10_data_sources"
+    title: Data Sources
+    required: true
+    file: responses/10_data_sources.md
+  - id: "11_data_management"
+    title: Data Management
+    required: true
+    file: responses/11_data_management.md
+  - id: "12_stakeholder_engagement"
+    title: Stakeholder Engagement
+    required: true
+    file: responses/12_stakeholder_engagement.md
+  - id: "13_resources_infrastructure"
+    title: Resources and Infrastructure
+    required: true
+    file: responses/13_resources_infrastructure.md
+  - id: "14_scalability_sustainability"
+    title: Scalability and Sustainability
+    required: true
+    file: responses/14_scalability_sustainability.md
+  - id: "15_financial_viability"
+    title: Financial Viability
+    required: true
+    file: responses/15_financial_viability.md
+
+formatting_rules: []  # No formatting rules could be sourced for PBIF.
+
+budget_rules:
+  total_cap: null  # UNKNOWN — the reference grant's 700000 is a request, not a cap.
+  annual_cap: null
+  indirect_rate_max: null
+  currency: USD  # UNCERTAIN.
+  notes: >-
+    The reference application requested USD 700,000 over 2 years; this is the
+    applicant's ask, not a published fund cap. Actual caps are unknown.
+
+portal:
+  accepts_markdown: true  # UNCERTAIN — could not be sourced; assumed true.
+  plain_text_boxes: false
+  url: null
+
+review_rubric: []  # No published rubric could be sourced for PBIF.

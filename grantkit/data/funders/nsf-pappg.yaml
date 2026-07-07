@@ -1,0 +1,312 @@
+# NSF PAPPG funder rule pack
+#
+# Provenance: folded from grantkit/data/nsf_formatting_rules.yaml (the canonical
+# source, still read by grantkit.utils.nsf_rules for the PDF engine). All
+# citations and quotes below are preserved verbatim from NSF PAPPG 24-1.
+# The programmatic content checks (prohibited URLs/emails, project-description
+# hyperlink ban, non-ASCII, structure) run via content_engine: nsf_pappg, which
+# dispatches to grantkit.core.validator.NSFValidator.
+#
+# Source: NSF Proposal & Award Policies & Procedures Guide (PAPPG) 24-1
+# URL: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/index.jsp
+
+id: nsf-pappg
+name: National Science Foundation
+program: NSF (PAPPG 24-1)
+version: "24-1"
+source_url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/index.jsp
+locale: en-US
+provenance: >-
+  Derived from grantkit/data/nsf_formatting_rules.yaml (PAPPG 24-1, last updated
+  2024-12-31). Default sections use the CSSI/general research-proposal shape.
+content_engine: nsf_pappg
+
+# Default sections scaffolded by `grantkit init --funder nsf-pappg`.
+sections:
+  - id: project_summary
+    title: Project Summary
+    page_limit: 1
+    required: true
+    file: responses/project_summary.md
+    description: >-
+      One-page overview with separate Overview, Intellectual Merit, and Broader
+      Impacts statements (PAPPG II.C.2.b).
+  - id: project_description
+    title: Project Description
+    page_limit: 15
+    required: true
+    file: responses/project_description.md
+    description: >-
+      Main technical description. Must contain separate Intellectual Merit and
+      Broader Impacts statements (PAPPG II.C.2.d.i).
+  - id: broader_impacts
+    title: Broader Impacts
+    required: true
+    file: responses/broader_impacts.md
+    description: Broader impacts of the proposed activity (PAPPG II.C.2.d.i).
+  - id: references
+    title: References Cited
+    required: true
+    file: responses/references.md
+    description: References cited; no page limit (PAPPG II.C.2.e).
+  - id: data_management_plan
+    title: Data Management and Sharing Plan
+    page_limit: 2
+    required: true
+    file: responses/data_management_plan.md
+    description: Supplementary document, limited to two pages (PAPPG II.D.2.4.b).
+
+# Documented formatting rules, each carrying its PAPPG citation. Rules with an
+# obvious programmatic equivalent are also enforced by content_engine/limits.
+formatting_rules:
+  - id: font_size_minimum
+    description: Text font size must be 10 points or larger.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.d.i.(a)
+    quote: Text font size must be 10 points or larger.
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: font_family
+    description: >-
+      Use Times New Roman, TeX Gyre Termes, Times Roman, or Computer Modern.
+    severity: warning
+    citation: PAPPG 24-1 II.C.2.d.i.(a)
+    quote: A font such as Computer Modern font may be used for mathematical formulas or equations.
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: font_small_elements_minimum
+    description: >-
+      Smaller fonts (>=8pt) are allowed only for math, equations, figure/table
+      captions, and bibliographic references.
+    severity: warning
+    citation: PAPPG 24-1 II.C.2.d.i.(a)
+    quote: A smaller font may be used for mathematical formulas, equations, figure captions, and bibliographic references.
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: line_density_maximum
+    description: No more than six lines of text per vertical inch.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.d.i.(b)
+    quote: No more than six lines of text per vertical inch.
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: margins_minimum
+    description: Margins, in all directions, must be at least an inch.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.d.i.(c)
+    quote: Margins, in all directions, must be at least an inch.
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: page_size_letter
+    description: Use standard 8.5 x 11 inch pages.
+    severity: warning
+    citation: PAPPG 24-1 II.C.2.d.i
+    quote: Standard 8.5 x 11 inch pages.
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: page_orientation_portrait
+    description: Pages should be portrait orientation.
+    severity: info
+    citation: PAPPG 24-1 II.C.2.d.i
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: no_email_addresses
+    description: >-
+      The Project Description must not include email addresses of the PI(s),
+      co-PI(s), or other senior/key personnel.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.d.i
+    quote: Proposals must not include personal contact information.
+    applies_to: project_description
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: no_hyperlinks_in_project_description
+    description: Hyperlinks (URLs) are not allowed in the Project Description.
+    severity: error
+    citation: PAPPG 24-1 II.D.2.d.(i)
+    quote: Hyperlinks are not allowed in the Project Description.
+    applies_to: project_description
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: no_cloud_storage_urls
+    description: >-
+      Cloud storage and file-sharing URLs (Dropbox, Google Drive, OneDrive,
+      iCloud, Box, MediaFire, etc.) are prohibited; use institutional
+      repositories such as Zenodo or Figshare.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.d.i
+    quote: Proposals must not include URLs that provide information necessary to the review of the proposal.
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: project_description_page_limit
+    description: The Project Description is limited to 15 pages.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.d.i
+    quote: The Project Description is limited to 15 pages.
+    applies_to: project_description
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: required_overview
+    description: The Project Description must contain an Overview section.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.d.i
+    quote: >-
+      The Project Description must contain, as separate sections, an overview,
+      a statement on the intellectual merit of the proposed activity, and a
+      statement on the broader impacts of the proposed activity.
+    applies_to: project_description
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: required_intellectual_merit
+    description: >-
+      The Project Description must contain a statement on the intellectual merit
+      of the proposed activity.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.d.i
+    quote: Must contain a statement on the intellectual merit of the proposed activity.
+    applies_to: project_description
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: required_broader_impacts
+    description: >-
+      The Project Description must contain a statement on the broader impacts of
+      the proposed activity.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.d.i
+    quote: Must contain a statement on the broader impacts of the proposed activity.
+    applies_to: project_description
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: pdf_required
+    description: All proposal documents must be submitted in PDF.
+    severity: error
+    citation: PAPPG 24-1 II.C.1
+    quote: All proposal documents must be submitted in Portable Document Format (PDF).
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C1
+  - id: pdf_max_size
+    description: Uploaded PDF documents should be under 10 MB.
+    severity: warning
+    citation: PAPPG 24-1 II.C.1
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C1
+  - id: fonts_embedded
+    description: All fonts must be embedded in the PDF.
+    severity: error
+    citation: PAPPG 24-1 II.C.1
+    quote: All fonts must be embedded in the PDF.
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C1
+  - id: image_resolution
+    description: Images should be PNG/JPEG/GIF at 300 DPI minimum for print quality.
+    severity: info
+    citation: PAPPG 24-1 II.C.1
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C1
+  - id: no_non_ascii_characters
+    description: >-
+      Avoid non-ASCII characters that may cause encoding issues in the submitted
+      PDF.
+    severity: warning
+    citation: PAPPG 24-1 formatting guidelines
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2di
+  - id: budget_category_a_senior_personnel
+    description: Budget category A - Senior Personnel.
+    severity: info
+    citation: PAPPG 24-1 II.C.2.g.i.(a)
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2g
+  - id: budget_category_b_other_personnel
+    description: Budget category B - Other Personnel.
+    severity: info
+    citation: PAPPG 24-1 II.C.2.g.i.(b)
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2g
+  - id: budget_category_c_fringe_benefits
+    description: Budget category C - Fringe Benefits.
+    severity: info
+    citation: PAPPG 24-1 II.C.2.g.i.(c)
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2g
+  - id: budget_category_d_equipment
+    description: Budget category D - Equipment (items >= $5,000, excluded from MTDC).
+    severity: info
+    citation: PAPPG 24-1 II.C.2.g.i.(d)
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2g
+  - id: budget_category_e_travel
+    description: Budget category E - Travel (GSA per-diem rates apply for domestic travel).
+    severity: info
+    citation: PAPPG 24-1 II.C.2.g.i.(e)
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2g
+  - id: budget_category_f_participant_support
+    description: Budget category F - Participant Support (excluded from MTDC).
+    severity: info
+    citation: PAPPG 24-1 II.C.2.g.i.(f)
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2g
+  - id: budget_category_g_other_direct_costs
+    description: Budget category G - Other Direct Costs.
+    severity: info
+    citation: PAPPG 24-1 II.C.2.g.i.(g)
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2g
+  - id: budget_category_i_indirect_costs
+    description: Budget category I - Total Indirect Costs (F&A).
+    severity: info
+    citation: PAPPG 24-1 II.C.2.g.i.(h)
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2g
+  - id: biosketch_page_limit
+    description: Biographical sketch is limited to 3 pages, NSF-approved format only.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.f.i
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2fi
+  - id: biosketch_section_professional_preparation
+    description: Biographical sketch must include Professional Preparation.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.f.i
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2fi
+  - id: biosketch_section_appointments
+    description: Biographical sketch must include Appointments.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.f.i
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2fi
+  - id: biosketch_section_products
+    description: Biographical sketch must include Products/Publications.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.f.i
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2fi
+  - id: biosketch_section_synergistic_activities
+    description: Biographical sketch must include Synergistic Activities.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.f.i
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2fi
+  - id: biosketch_section_collaborators
+    description: Biographical sketch must include Collaborators & Other Affiliations.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.f.i
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_2.jsp#2C2fi
+
+budget_rules:
+  total_cap: null  # Program-specific; set per solicitation.
+  annual_cap: null
+  indirect_rate_max: null  # Use the institution's federally negotiated rate.
+  mtdc_excludes:
+    - equipment
+    - participant_support
+  currency: USD
+  notes: >-
+    Indirect costs (F&A) apply to Modified Total Direct Costs (MTDC), which
+    excludes equipment (>= $5,000) and participant support costs
+    (PAPPG 24-1 II.C.2.g.i.(h)).
+
+portal:
+  accepts_markdown: true  # Proposals are compiled to PDF and uploaded to Research.gov.
+  plain_text_boxes: false
+  url: https://www.research.gov/
+
+# NSF merit review criteria (PAPPG 24-1 Part III.A) used by `grantkit review`.
+review_rubric:
+  - id: intellectual_merit
+    name: Intellectual Merit
+    description: >-
+      The potential to advance knowledge. Considers the five review elements:
+      importance to the field, creativity, soundness of the plan, qualifications
+      of the team, and adequacy of resources.
+    citation: PAPPG 24-1 III.A
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_3.jsp
+  - id: broader_impacts
+    name: Broader Impacts
+    description: >-
+      The potential to benefit society and contribute to desired societal
+      outcomes.
+    citation: PAPPG 24-1 III.A
+    url: https://www.nsf.gov/pubs/policydocs/pappguide/nsf24001/nsf24001_3.jsp
+  - id: advancing_knowledge
+    name: Advancing knowledge
+    description: Importance of the proposed activity to advancing knowledge in its field.
+    citation: PAPPG 24-1 III.A.2
+  - id: qualifications
+    name: Qualifications
+    description: Qualifications of the individual/team to conduct the proposed activities.
+    citation: PAPPG 24-1 III.A.2
+  - id: adequacy_of_resources
+    name: Adequacy of resources
+    description: Adequacy of resources available to the PI to carry out the activities.
+    citation: PAPPG 24-1 III.A.2

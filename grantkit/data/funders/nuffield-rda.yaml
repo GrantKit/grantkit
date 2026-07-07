@@ -1,0 +1,145 @@
+# Nuffield Foundation — Research, Development and Analysis Fund (RDA) rule pack
+#
+# Provenance: sections and word limits derived from the READ-ONLY reference grant
+# at ~/grantkit-grants/nuffield-rda-2025/grant.yaml (its `full_application`
+# block, deadline 2026-01-14). The RDA fund is a two-stage process; the pack
+# below encodes the FULL APPLICATION stage. The earlier OUTLINE stage used a
+# smaller set with lower limits (Project Summary 100, Research Questions 200,
+# Case for Importance 200, Outcomes and Influence 300, Methods 750, Team 250,
+# Bibliographic References 350) — see the reference grant for those.
+#
+# Only values sourced from that grant.yaml are encoded here; none are invented.
+# Spelling locale is en-GB and the portal accepts plain text only.
+#
+# Source: https://www.nuffieldfoundation.org/funding/research-development-and-analysis-fund
+
+id: nuffield-rda
+name: Nuffield Foundation
+program: Research, Development and Analysis Fund (full application)
+source_url: https://www.nuffieldfoundation.org/funding/research-development-and-analysis-fund
+locale: en-GB
+provenance: >-
+  Full-application sections and word limits taken verbatim from
+  ~/grantkit-grants/nuffield-rda-2025/grant.yaml (full_application block).
+content_engine: null
+
+sections:
+  - id: project_summary
+    title: Project Summary
+    word_limit: 250
+    required: true
+    file: responses/project_summary.md
+  - id: a_research_questions
+    title: A) Research Questions
+    word_limit: 200
+    required: true
+    file: responses/a_research_questions.md
+  - id: b_case_for_importance
+    title: B) Case for the Importance of the Project
+    word_limit: 700
+    required: true
+    file: responses/b_case_for_importance.md
+  - id: c_impact_and_influence
+    title: C) Impact and Influence
+    word_limit: 700
+    required: true
+    file: responses/c_impact_and_influence.md
+  - id: d_methods_approach_activities
+    title: D) Methods, Approach and Activities
+    word_limit: 2800
+    required: true
+    file: responses/d_methods_approach_activities.md
+  - id: e_research_engagement_team
+    title: E) Research and Engagement Team
+    word_limit: 500
+    required: true
+    file: responses/e_research_engagement_team.md
+  - id: e2_early_career_development
+    title: E) Early Career Staff Development
+    word_limit: 250
+    required: true
+    file: responses/e2_early_career_development.md
+  - id: f_expert_advice_stakeholder
+    title: F) Expert Advice & Stakeholder Engagement
+    word_limit: 700
+    required: true
+    file: responses/f_expert_advice_stakeholder.md
+  - id: g_quality_assurance_risk
+    title: G) Quality Assurance and Risk Management
+    word_limit: 350
+    required: true
+    file: responses/g_quality_assurance_risk.md
+  - id: h_legal_ethical
+    title: H) Legal and Ethical Aspects
+    word_limit: 700
+    required: true
+    file: responses/h_legal_ethical.md
+  - id: i_archiving
+    title: I) Archiving
+    word_limit: 700
+    required: true
+    file: responses/i_archiving.md
+  - id: j_timetable
+    title: J) Timetable
+    word_limit: 700
+    required: true
+    file: responses/j_timetable.md
+  - id: k_budget
+    title: K) Budget
+    required: true
+    file: responses/k_budget.md
+    description: Budget narrative; completed alongside the Nuffield budget template.
+  - id: l_bibliographic_references
+    title: L) Bibliographic References
+    word_limit: 700
+    required: true
+    file: responses/l_bibliographic_references.md
+
+# The Nuffield portal uses plain-text boxes, so any markdown syntax would be
+# pasted literally. `grantkit check` flags markdown in responses as an error.
+formatting_rules:
+  - id: plain_text_only
+    description: >-
+      The Nuffield application portal uses plain-text boxes only. Do not use
+      markdown formatting (headings, tables, bold/italic, links) in responses.
+    severity: error
+    citation: Nuffield Foundation RDA application portal
+    url: https://www.nuffieldfoundation.org/funding/research-development-and-analysis-fund
+  - id: uk_english_spelling
+    description: Use UK English spelling throughout (en-GB).
+    severity: warning
+    citation: Nuffield Foundation applicant guidance
+
+budget_rules:
+  # Award sizing from the reference grant.yaml full_application block.
+  total_cap: 500000  # max_award
+  annual_cap: null
+  indirect_rate_max: null
+  currency: GBP
+  notes: >-
+    Typical award ~GBP 300,000; maximum GBP 500,000; exceptional cases up to
+    GBP 750,000. Project duration 6-36 months. Values from the reference
+    grant.yaml full_application block; confirm against the current call.
+
+portal:
+  accepts_markdown: false
+  plain_text_boxes: true
+  url: https://www.nuffieldfoundation.org/funding/research-development-and-analysis-fund
+  notes: Plain-text submission boxes; no markdown or rich formatting.
+
+# Assessment priorities from the reference grant.yaml full_application
+# `priority_questions`. The Nuffield Foundation does not publish a numeric
+# scoring rubric, so these are framed as thematic criteria.
+review_rubric:
+  - id: prosperous_fair_society
+    name: Building a prosperous and fair society
+    description: How the project contributes to a prosperous and fair society.
+    citation: Nuffield Foundation RDA priority questions
+  - id: inclusive_society
+    name: Creating an inclusive society
+    description: How the project contributes to an inclusive society.
+    citation: Nuffield Foundation RDA priority questions
+  - id: science_technology_benefit
+    name: Ensuring science and technology benefit people
+    description: How the project ensures science and technology benefit people.
+    citation: Nuffield Foundation RDA priority questions
