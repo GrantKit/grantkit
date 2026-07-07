@@ -124,3 +124,51 @@ def test_build_rejects_unknown_format(make_grant, simple_config):
     )
     with pytest.raises(ValueError):
         build_project(project, fmt="rtf")
+
+
+def test_plaintext_blocks_render_fields_sections_verbatim(tmp_path):
+    import yaml as _yaml
+
+    from grantkit.core.builder import _assemble_plaintext_blocks
+    from grantkit.core.project import GrantProject
+
+    (tmp_path / "responses").mkdir()
+    (tmp_path / "responses" / "pi.md").write_text(
+        "| Field | Value |\n|---|---|\n| Name | Max |\n"
+    )
+    (tmp_path / "responses" / "a.md").write_text("Some **bold** prose.\n")
+    (tmp_path / "grant.yaml").write_text(
+        _yaml.safe_dump(
+            {
+                "title": "T",
+                "accepts_markdown": False,
+                "sections": [
+                    {
+                        "id": "pi",
+                        "title": "PI details",
+                        "format": "fields",
+                        "file": "responses/pi.md",
+                    },
+                    {
+                        "id": "a",
+                        "title": "Summary",
+                        "file": "responses/a.md",
+                        "word_limit": 100,
+                    },
+                ],
+            }
+        )
+    )
+    blocks = _assemble_plaintext_blocks(GrantProject(tmp_path))
+    assert "PI details  (form fields — enter individually)" in blocks
+    assert "| Name | Max |" in blocks  # fields table kept verbatim
+    assert "Some bold prose." in blocks  # emphasis stripped in prose
+    assert "**bold**" not in blocks
+
+
+def test_to_plaintext_strips_html_comments():
+    from grantkit.core.builder import _to_plaintext
+
+    assert _to_plaintext("Keep this.<!-- reviewer note\nspanning -->") == (
+        "Keep this."
+    )

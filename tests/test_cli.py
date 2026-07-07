@@ -44,9 +44,9 @@ def test_check_exit_codes(tmp_path):
     result = runner.invoke(main, ["check", "--strict", str(tmp_path)])
     assert result.exit_code == 1
 
-    # Introduce an error (markdown in a plain-text portal).
+    # Introduce an error (a table survives plain-text conversion).
     (tmp_path / "responses" / "project_summary.md").write_text(
-        "# heading not allowed in plain text\n", encoding="utf-8"
+        "| a | b |\n|---|---|\n| 1 | 2 |\n", encoding="utf-8"
     )
     result = runner.invoke(main, ["check", str(tmp_path)])
     assert result.exit_code == 1

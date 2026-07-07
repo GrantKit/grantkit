@@ -239,24 +239,35 @@ def _check_markdown(project: "GrantProject") -> list[CheckItem]:
                 )
             )
 
-    # 2. Plain-text portals: any Markdown syntax is a problem.
+    # 2. Plain-text portals. Constructs `grantkit build` converts cleanly
+    # (headers, emphasis, links, inline code, lists) are warnings — paste
+    # from the built copy blocks, not the source file. Constructs that
+    # survive conversion (tables, HTML comments) are errors. `fields`
+    # sections hold individual form values, not pasted prose, so they are
+    # not linted here.
     if not project.accepts_markdown:
         citation = _plain_text_citation(project.pack)
         validator = MarkdownContentValidator(accepts_markdown=False)
         for section in project.sections:
-            if not section.exists:
+            if not section.exists or section.format == "fields":
                 continue
             result = validator.validate_content(section.body, section.id)
             for violation in result.violations:
+                converts = violation.syntax_type not in ("table", "comment")
                 out.append(
                     CheckItem(
-                        level="error",
+                        level="warning" if converts else "error",
                         rule="markdown_in_plain_text",
                         message=(
                             f"{violation.message} on line "
-                            f"{violation.line_number} — this portal accepts "
-                            f"plain text only, so Markdown would be pasted "
-                            f"literally."
+                            f"{violation.line_number} — "
+                            + (
+                                "stripped cleanly in the built copy blocks; "
+                                "paste from the build output, not this file."
+                                if converts
+                                else "this does not convert to plain text "
+                                "and would be pasted literally."
+                            )
                         ),
                         section=section.id,
                         citation=citation,
@@ -380,12 +391,17 @@ def _check_budget(
             )
         grand_total = calc.calculate_grand_total()
         yearly = calc.calculate_yearly_totals()
-    except Exception as exc:
+    except Exception:
         return out + [
             CheckItem(
                 level="warning",
-                rule="budget_unreadable",
-                message=f"Could not compute budget totals: {exc}",
+                rule="budget_schema_mismatch",
+                message=(
+                    f"{budget_path.name} does not match grantkit's budget "
+                    "schema (see docs), so arithmetic and cap checks were "
+                    "skipped. Verify totals another way, or omit the file "
+                    "from grantkit's view by renaming it."
+                ),
             )
         ]
 

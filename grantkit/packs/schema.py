@@ -26,7 +26,9 @@ Schema (top-level keys)
 ``sections`` (list, optional)
     Section definitions used to scaffold a grant. Each carries
     ``id``/``title``/``word_limit``/``char_limit``/``page_limit``/``required``/
-    ``description``/``file``/``stage``.
+    ``description``/``file``/``stage``/``format`` (``prose`` | ``fields``;
+    ``fields`` sections hold individual form values and are exempt from
+    plain-text portal linting).
 ``formatting_rules`` (list, optional)
     Documented formatting rules. Each carries ``id``/``description``/``severity``/
     ``citation``/``url``/``quote``/``applies_to``.
@@ -48,6 +50,7 @@ from typing import Any, Optional
 VALID_SEVERITIES = {"error", "warning", "info"}
 VALID_LOCALES = {"en-US", "en-GB"}
 VALID_CONTENT_ENGINES = {None, "nsf_pappg"}
+VALID_SECTION_FORMATS = {"prose", "fields"}
 
 
 @dataclass
@@ -63,6 +66,9 @@ class PackSection:
     description: Optional[str] = None
     file: Optional[str] = None
     stage: Optional[str] = None
+    #: ``prose`` (default) is pasted as a portal text box; ``fields`` holds
+    #: individual form values and is exempt from plain-text portal linting.
+    format: str = "prose"
 
 
 @dataclass
@@ -153,6 +159,11 @@ class FunderPack:
                 description=s.get("description"),
                 file=s.get("file"),
                 stage=s.get("stage"),
+                format=(
+                    s["format"]
+                    if s.get("format") in VALID_SECTION_FORMATS
+                    else "prose"
+                ),
             )
             for s in data.get("sections", []) or []
         ]
@@ -286,6 +297,15 @@ def validate_pack(data: Any) -> list[str]:
             ):
                 errors.append(
                     f"{where} ('{sid}') 'required' must be a boolean"
+                )
+            if (
+                "format" in section
+                and section["format"] not in VALID_SECTION_FORMATS
+            ):
+                errors.append(
+                    f"{where} ('{sid}') invalid format "
+                    f"'{section['format']}' "
+                    f"(allowed: {sorted(VALID_SECTION_FORMATS)})"
                 )
 
     # Formatting rules
