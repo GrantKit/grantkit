@@ -20,6 +20,13 @@ inputs:
     description: Fail the job on warnings as well as errors.
     required: false
     default: "false"
+  install-spec:
+    description: >-
+      pip requirement string for installing GrantKit (e.g. "grantkit",
+      "grantkit==0.2.0", or a git URL like
+      "git+https://github.com/GrantKit/grantkit@v0.2.0").
+    required: false
+    default: "grantkit"
 
 runs:
   using: composite
@@ -31,7 +38,7 @@ runs:
 
     - name: Install GrantKit
       shell: bash
-      run: python -m pip install --upgrade pip grantkit
+      run: python -m pip install --upgrade pip "${{ inputs.install-spec }}"
 
     - name: Check (capture, non-fatal)
       id: check
