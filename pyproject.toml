@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "grantkit"
-version = "0.2.0"
+version = "0.2.1"
 description = "The linter and compiler for grant proposals — grants as files, agents bring the AI"
 readme = "README.md"
 license = {text = "MIT"}

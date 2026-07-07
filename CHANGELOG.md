@@ -4,6 +4,32 @@ All notable changes to GrantKit are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-07-07
+
+Fixes from the first two real-application runs (PBIF round 2, Nuffield
+rapid-response).
+
+### Added
+
+- Per-section `format: prose|fields`. `fields` sections hold individual portal
+  form values (Field/Value tables typed one by one), so plain-text portal
+  linting skips them and `build` renders them verbatim as an on-screen
+  reference instead of a paste block.
+- Placeholder detection catches bracketed directives such as
+  `[MAX: phone number]`, `[AK: confirm]`, and `[NEED INPUT]`.
+- Composite GitHub Action gains an `install-spec` input for installing from a
+  pinned version or git ref.
+
+### Changed
+
+- `markdown_in_plain_text` severity now tracks build convertibility: headers,
+  emphasis, links, and inline code are warnings (they are stripped cleanly in
+  the built copy blocks — paste from the build output); tables and HTML
+  comments remain errors.
+- `_to_plaintext` strips HTML comments from portal copy blocks.
+- Unparseable `budget.yaml` now reports an actionable `budget_schema_mismatch`
+  warning instead of a raw exception message.
+
 ## [0.2.0] - 2026-07-07
 
 Rebuilt GrantKit as a stateless, local-first engine — "the linter and compiler

@@ -5,7 +5,7 @@ engine: it reads a ``grant.yaml`` plus Markdown responses and lints, compiles,
 and reports on them without any cloud service or AI calls.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __author__ = "PolicyEngine"
 __email__ = "hello@policyengine.org"
 
