@@ -668,18 +668,30 @@ def test_duplicate_key_winner_is_the_same_under_every_hash_seed(
     assert results[0]["title"] == "sections/d.bib"
 
 
-def test_reloading_does_not_reparse_earlier_files(duplicate_key_root):
-    """A reused bibtexparser parser merges every earlier parse into the next.
-
-    That emitted a UserWarning on each reload and re-applied the first
-    file's entries after the last file's, flipping duplicate-key winners.
-    """
+def test_reloading_reuses_no_parser_state(duplicate_key_root):
+    """A reused bibtexparser parser returns every earlier parse again with
+    each new file, and warns on its second use (every reload hit it)."""
     manager = BibTeXManager(duplicate_key_root)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        manager.load_bibliography()
+        manager.load_bibliography()
+    assert not [w for w in caught if "more than once" in str(w.message)]
+    assert manager.get_entry("dup").title == "sections/d.bib"
+
+
+def test_every_bib_file_loads_under_warnings_as_errors(tmp_path):
+    """With the parser reused, the second file's parse raised that warning;
+    under warnings-as-errors load_bibliography logged and swallowed it, so
+    that file's entries silently went missing (which file depended on the
+    hash seed)."""
+    (tmp_path / "a.bib").write_text("@misc{a, title = {A}}\n")
+    (tmp_path / "b.bib").write_text("@misc{b, title = {B}}\n")
+    manager = BibTeXManager(tmp_path)
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         manager.load_bibliography()
-        manager.load_bibliography()
-    assert manager.get_entry("dup").title == "sections/d.bib"
+    assert set(manager.entries) == {"a", "b"}
 
 
 # -- legacy PDF pipeline -------------------------------------------------

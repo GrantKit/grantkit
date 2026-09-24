@@ -53,9 +53,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   no longer merges two authors into one.
 - `.bib` files load in a fixed order (it was hash-randomized), so when a key
   is defined in more than one file the same entry wins every run, and a
-  warning names the override. Each file gets a fresh parser, so reloading no
-  longer re-applies earlier files or emits bibtexparser's "parser has been
-  called more than once" warning.
+  warning names the override. Each file gets a fresh parser: a reused one
+  re-parsed every earlier file with each new one and emitted bibtexparser's
+  "parser has been called more than once" warning, and under
+  warnings-as-errors the second `.bib` file silently failed to load.
 - The legacy PDF pipeline built References Cited from the already-numbered
   text, which has no `[@key]` left, so the list was always empty; it also
   numbered the text before loading `references.bib`, sorting by key instead of

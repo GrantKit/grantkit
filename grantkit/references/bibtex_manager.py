@@ -108,9 +108,9 @@ class BibTeXManager:
 
             try:
                 with open(bib_path, "r", encoding="utf-8") as bib_file_obj:
-                    # A fresh parser per file: a reused BibTexParser
-                    # accumulates every earlier parse into its result, so
-                    # reloading would re-apply stale duplicates.
+                    # A fresh parser per file: a reused BibTexParser returns
+                    # every earlier parse again with each new file and warns
+                    # on its second use (an error under -W error).
                     database = bibtexparser.load(
                         bib_file_obj, self._new_parser()
                     )
