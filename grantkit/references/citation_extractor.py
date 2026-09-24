@@ -129,7 +129,7 @@ class CitationExtractor:
         citations_by_file = {}
 
         for pattern in file_patterns:
-            for file_path in directory.glob(pattern):
+            for file_path in sorted(directory.glob(pattern)):
                 if file_path.is_file():
                     citations = self.extract_citations_from_file(file_path)
                     if citations:

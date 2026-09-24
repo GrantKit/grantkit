@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Collection, List, Optional
 
 from .bibtex_manager import BibEntry
 
@@ -60,7 +60,9 @@ class NSFBibliographyFormatter:
             parts.append(f"[{number}]")
 
         # Authors
-        authors_str = self._format_authors(entry.authors)
+        authors_str = self._format_authors(
+            entry.authors, entry.corporate_authors
+        )
         parts.append(f"{authors_str}.")
 
         # Title
@@ -101,7 +103,9 @@ class NSFBibliographyFormatter:
             parts.append(f"[{number}]")
 
         # Authors
-        authors_str = self._format_authors(entry.authors)
+        authors_str = self._format_authors(
+            entry.authors, entry.corporate_authors
+        )
         parts.append(f"{authors_str}.")
 
         # Title
@@ -135,7 +139,9 @@ class NSFBibliographyFormatter:
             parts.append(f"[{number}]")
 
         # Authors
-        authors_str = self._format_authors(entry.authors)
+        authors_str = self._format_authors(
+            entry.authors, entry.corporate_authors
+        )
         parts.append(f"{authors_str}.")
 
         # Title
@@ -178,7 +184,9 @@ class NSFBibliographyFormatter:
             parts.append(f"[{number}]")
 
         # Authors
-        authors_str = self._format_authors(entry.authors)
+        authors_str = self._format_authors(
+            entry.authors, entry.corporate_authors
+        )
         if authors_str:
             parts.append(f"{authors_str}.")
 
@@ -213,7 +221,9 @@ class NSFBibliographyFormatter:
             parts.append(f"[{number}]")
 
         # Authors
-        authors_str = self._format_authors(entry.authors)
+        authors_str = self._format_authors(
+            entry.authors, entry.corporate_authors
+        )
         if authors_str:
             parts.append(f"{authors_str}.")
 
@@ -233,29 +243,42 @@ class NSFBibliographyFormatter:
 
         return " ".join(parts)
 
-    def _format_authors(self, authors: List[str]) -> str:
-        """Format author list according to style guidelines."""
+    def _format_authors(
+        self, authors: List[str], corporate: Collection[str] = ()
+    ) -> str:
+        """Format author list according to style guidelines.
+
+        Names in ``corporate`` are institutions and print verbatim.
+        """
         if not authors:
             return ""
 
+        def fmt(author: str) -> str:
+            return self._format_single_author(author, author in corporate)
+
         if len(authors) == 1:
-            return self._format_single_author(authors[0])
+            return fmt(authors[0])
         elif len(authors) == 2:
-            return f"{self._format_single_author(authors[0])} and {self._format_single_author(authors[1])}"
+            return f"{fmt(authors[0])} and {fmt(authors[1])}"
         elif len(authors) <= self.style.et_al_threshold:
             # Show all authors
-            formatted_authors = [
-                self._format_single_author(author) for author in authors[:-1]
-            ]
-            last_author = self._format_single_author(authors[-1])
+            formatted_authors = [fmt(author) for author in authors[:-1]]
+            last_author = fmt(authors[-1])
             return f"{', '.join(formatted_authors)}, and {last_author}"
         else:
             # Use et al.
-            first_author = self._format_single_author(authors[0])
+            first_author = fmt(authors[0])
             return f"{first_author} et al."
 
-    def _format_single_author(self, author: str) -> str:
+    def _format_single_author(
+        self, author: str, corporate: bool = False
+    ) -> str:
         """Format a single author name."""
+        if corporate:
+            # "National Science Foundation", never "Foundation, National
+            # Science": a brace-protected name has no first/last parts.
+            return author
+
         # Handle "Last, First Middle" format
         if "," in author:
             parts = author.split(",", 1)
