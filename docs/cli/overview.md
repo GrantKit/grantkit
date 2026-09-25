@@ -12,7 +12,7 @@ grantkit COMMAND [OPTIONS] [PATH]
 |---------|-------------|
 | [`init`](#init) | Scaffold a grant project (optionally from a funder pack). |
 | [`check`](check.md) | Lint the proposal; non-zero exit on errors. |
-| [`build`](build.md) | Compile responses into one document; always writes `status.json`. |
+| [`build`](build.md) | Compile responses into one review document; always writes `status.json`. |
 | [`review`](#review) | Emit a review packet for an AI agent (no AI calls). |
 | [`status`](#status) | Completion %, per-section word counts, deadline countdown. |
 | [`budget`](#budget) | Compile a budget from a menu + rates + a selection. |

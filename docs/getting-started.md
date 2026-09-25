@@ -63,7 +63,8 @@ grantkit check
 
 The linter reports errors and warnings — required sections, word/char/page
 limits, placeholder text, citation resolution, budget arithmetic and funder
-caps, funder formatting rules, and spelling locale. It exits non-zero on
+caps, machine-checkable funder rules, and spelling locale. Other formatting
+rules remain sourced pack guidance for generated-artifact or manual review. It exits non-zero on
 errors (add `--strict` to fail on warnings too, or `--urls` to also verify
 links resolve).
 
@@ -80,10 +81,15 @@ grantkit status --json     # writes status.json (machine-readable)
 grantkit build --format pdf --share
 ```
 
-`build` assembles every response into one document (`md`, `html`, `pdf`, or
-`docx`). For plain-text portals it emits labelled copy blocks to paste box by
-box. `--share` also writes a self-contained `assembled.html` review page, and
-every build refreshes `status.json`.
+`build` assembles every response into one review document (`md`, `html`,
+`pdf`, or `docx`). For plain-text portals it emits labelled copy blocks to
+paste box by box. `--share` also writes a self-contained `assembled.html`
+review page, and every build refreshes `status.json`.
+
+For NSF projects, the combined PDF is review-only and says so in the document
+and at the CLI. Upload or enter each required section separately in
+Research.gov; the combined PDF and its raw `[@key]` citation markers are not
+submission-ready.
 
 ## Next steps
 

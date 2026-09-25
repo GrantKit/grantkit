@@ -2,7 +2,7 @@
 
 Given a :class:`~grantkit.core.project.GrantProject` this module produces:
 
-* a compiled document in ``md`` / ``html`` / ``pdf`` / ``docx`` — for
+* a compiled review document in ``md`` / ``html`` / ``pdf`` / ``docx`` — for
   plain-text portals (``accepts_markdown: false``) the compiled text is a set
   of labelled copy blocks ready to paste into portal boxes;
 * optionally (``--share``) a single self-contained ``assembled.html`` review
@@ -19,7 +19,7 @@ from __future__ import annotations
 import html as _html
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 import markdown as _markdown
 
@@ -38,6 +38,16 @@ _STATUS_COLORS = {
     "empty": ("#5f6368", "#f1f3f4"),
     "over_limit": ("#c5221f", "#fce8e6"),
 }
+
+_NSF_REVIEW_WARNING = (
+    "NSF PDF builds are combined review copies only, not submission "
+    "artifacts. Do not upload this file to NSF; upload or enter each "
+    "required section separately in Research.gov."
+)
+_NSF_CITATION_WARNING = (
+    "Citation markers remain raw authoring text in this review PDF; "
+    "grantkit build does not resolve or format them."
+)
 
 
 class BuildDependencyError(Exception):
@@ -91,7 +101,12 @@ def build_project(
     elif fmt == "html":
         doc_path.write_text(_compile_document_html(project), encoding="utf-8")
     elif fmt == "pdf":
+        nsf_review = _is_nsf_project(project)
         _write_pdf(project, doc_path)
+        if nsf_review:
+            result.warnings.append(_NSF_REVIEW_WARNING)
+            if _has_raw_citations(project):
+                result.warnings.append(_NSF_CITATION_WARNING)
     elif fmt == "docx":
         _write_docx(project, doc_path)
     result.document_path = doc_path
@@ -115,13 +130,17 @@ def _compile_text(project: "GrantProject") -> str:
     return _assemble_plaintext_blocks(project)
 
 
-def _assemble_markdown(project: "GrantProject") -> str:
+def _assemble_markdown(
+    project: "GrantProject", *, include_field_sections: bool = True
+) -> str:
     parts: list[str] = []
     title = project.title or project.funder or "Grant proposal"
     parts.append(f"# {title}\n")
     if project.program:
         parts.append(f"*{project.program}*\n")
     for section in project.sections:
+        if not include_field_sections and section.format == "fields":
+            continue
         parts.append(f"\n## {section.title}\n")
         body = section.body.strip() if section.exists else ""
         parts.append(body if body else "_(empty)_")
@@ -176,16 +195,26 @@ def _to_plaintext(markdown_text: str) -> str:
 
 
 def _compile_document_html(project: "GrantProject") -> str:
-    if project.accepts_markdown:
-        body_html = _markdown.markdown(
-            _assemble_markdown(project),
-            extensions=["tables", "fenced_code"],
-        )
-    else:
-        blocks = _assemble_plaintext_blocks(project)
-        body_html = f"<pre>{_html.escape(blocks)}</pre>"
+    body_html = _document_body_html(project)
     title = _html.escape(project.title or project.funder or "Grant proposal")
     return _document_html_shell(title, body_html)
+
+
+def _document_body_html(
+    project: "GrantProject", *, include_field_sections: bool = True
+) -> str:
+    if project.accepts_markdown:
+        return cast(
+            str,
+            _markdown.markdown(
+                _assemble_markdown(
+                    project, include_field_sections=include_field_sections
+                ),
+                extensions=["tables", "fenced_code"],
+            ),
+        )
+    blocks = _assemble_plaintext_blocks(project)
+    return f"<pre>{_html.escape(blocks)}</pre>"
 
 
 def _document_html_shell(title: str, body_html: str) -> str:
@@ -205,6 +234,97 @@ def _document_html_shell(title: str, body_html: str) -> str:
     )
 
 
+def _compile_nsf_review_html(project: "GrantProject") -> str:
+    """Return a combined NSF review packet with safe paged-media styles."""
+    body_html = _document_body_html(project, include_field_sections=False)
+    title = _html.escape(project.title or project.funder or "Grant proposal")
+    review_title = f"{title} — NSF review copy"
+    notice = (
+        '<aside class="nsf-review-notice" role="note">\n'
+        "<strong>REVIEW COPY — NOT FOR NSF SUBMISSION</strong>\n"
+        "<p>This combined PDF is for internal review only. Do not upload it "
+        "to NSF. Upload or enter each required proposal section separately "
+        "in Research.gov.</p>\n"
+        "<p>Citation markers such as <code>[@key]</code> remain raw "
+        "authoring text; this review build does not resolve or format "
+        "them.</p>\n"
+        "</aside>"
+    )
+    return (
+        '<!doctype html>\n<html lang="en">\n<head>\n'
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, '
+        'initial-scale=1">\n'
+        f"<title>{review_title}</title>\n"
+        f"<style>\n{_nsf_review_css()}\n</style>\n"
+        "</head>\n<body>\n"
+        f"{notice}\n{body_html}\n"
+        "</body>\n</html>\n"
+    )
+
+
+def _nsf_review_css() -> str:
+    """CSS matching current NSF document-formatting minimums."""
+    # Keep the review build independent of the legacy lower-level PDFConfig,
+    # whose Times-at-10pt default predates the current PAPPG font matrix.
+    font_family = "Arial"
+    font_size = 10
+    margin = 1.0
+    return f"""@page {{
+  size: 8.5in 11in;
+  margin: {margin}in {margin}in {margin}in {margin}in;
+}}
+body {{
+  font-family: "{font_family}";
+  font-size: {font_size}pt;
+  line-height: 1.2;
+  margin: 0;
+  padding: 0;
+  color: #000;
+}}
+h1 {{font-size: {font_size + 2}pt; margin: 12pt 0 6pt}}
+h2 {{font-size: {font_size + 1}pt; margin: 10pt 0 4pt}}
+h3, h4, h5, h6 {{font-size: {font_size}pt; margin: 8pt 0 3pt}}
+p {{margin: 0 0 6pt}}
+pre, code, table, td, th {{font-family: inherit; font-size: inherit}}
+pre {{white-space: pre-wrap}}
+table {{border-collapse: collapse; width: 100%; margin: 6pt 0}}
+td, th {{border: 1pt solid #000; padding: 3pt}}
+img {{max-width: 100%; height: auto}}
+p, li {{orphans: 2; widows: 2}}
+h1, h2, h3, h4, h5, h6 {{break-after: avoid}}
+.nsf-review-notice {{
+  border: 2pt solid #000;
+  padding: 8pt;
+  margin: 0 0 12pt;
+  break-inside: avoid;
+}}
+.nsf-review-notice strong {{display: block; margin-bottom: 6pt}}
+.nsf-review-notice p:last-child {{margin-bottom: 0}}
+/* Research.gov supplies pagination; this stylesheet adds no page counter. */"""
+
+
+def _is_nsf_project(project: "GrantProject") -> bool:
+    pack = project.pack
+    if pack is not None and (
+        pack.id == "nsf-pappg"
+        or pack.id.startswith("nsf-")
+        or (pack.content_engine or "").startswith("nsf_")
+    ):
+        return True
+    funder = project.funder.casefold()
+    return funder == "nsf" or "national science foundation" in funder
+
+
+def _has_raw_citations(project: "GrantProject") -> bool:
+    return any(
+        "[@" in section.body
+        or "\\cite{" in section.body
+        or "\\citep{" in section.body
+        for section in project.sections
+    )
+
+
 def _write_pdf(project: "GrantProject", out_path: Path) -> None:
     try:
         from weasyprint import HTML
@@ -214,7 +334,11 @@ def _write_pdf(project: "GrantProject", out_path: Path) -> None:
             "`pip install grantkit[pdf]` (WeasyPrint also needs the system "
             f"Pango/Cairo libraries). Underlying error: {exc}"
         )
-    html_doc = _compile_document_html(project)
+    html_doc = (
+        _compile_nsf_review_html(project)
+        if _is_nsf_project(project)
+        else _compile_document_html(project)
+    )
     HTML(string=html_doc).write_pdf(str(out_path))
 
 

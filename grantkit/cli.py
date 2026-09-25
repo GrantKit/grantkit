@@ -204,7 +204,10 @@ def _print_checks(result: CheckResult) -> None:
     "fmt",
     type=click.Choice(["md", "html", "pdf", "docx"]),
     default="md",
-    help="Output format for the compiled document.",
+    help=(
+        "Output format for the compiled review document; NSF PDFs are "
+        "review-only."
+    ),
 )
 @click.option(
     "--share",
@@ -220,7 +223,7 @@ def _print_checks(result: CheckResult) -> None:
 )
 @PATH_ARG
 def build(fmt: str, share: bool, output: Optional[Path], path: Path) -> None:
-    """Assemble responses into one document (always writes status.json)."""
+    """Assemble responses into one review document and refresh status.json."""
     project = _load_project(path)
     try:
         result = build_project(project, fmt=fmt, share=share, output=output)
@@ -235,6 +238,14 @@ def build(fmt: str, share: bool, output: Optional[Path], path: Path) -> None:
         except ValueError:
             rel = out
         console.print(f"  [dim]wrote[/dim] {rel}")
+    for warning in result.warnings:
+        err_console.print(
+            Text.assemble(
+                ("warning", "yellow"),
+                " ",
+                _terminal_text(warning),
+            )
+        )
 
 
 # -- review -------------------------------------------------------------

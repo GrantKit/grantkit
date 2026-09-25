@@ -7,8 +7,8 @@
 **The linter and compiler for grant proposals.** Grants as files; agents bring the AI.
 
 GrantKit is a stateless, local-first engine. It reads a `grant.yaml` plus your
-Markdown responses and it lints them, compiles them into one submission
-document, and reports a machine-readable status — with no cloud service and no
+Markdown responses and it lints them, compiles them into one review document,
+and reports a machine-readable status — with no cloud service and no
 AI calls of its own. Point Claude Code (or any agent) at the files to do the
 writing; GrantKit keeps them correct.
 
@@ -47,7 +47,7 @@ claude "draft responses/b_case_for_importance.md from our repo README"
 # 3. Lint against the funder's rules
 grantkit check
 
-# 4. Compile the submission document (+ a shareable review page)
+# 4. Compile a combined review document (+ a shareable review page)
 grantkit build --format pdf --share
 ```
 
@@ -57,13 +57,18 @@ grantkit build --format pdf --share
 |------|--------------|
 | `grantkit init [--funder PACK]` | Scaffold `grant.yaml`, `responses/`, `budget.yaml`, `references.bib`. |
 | `grantkit check [--json] [--strict] [--urls]` | Lint the proposal. Non-zero exit on errors (warnings fail only with `--strict`). |
-| `grantkit build [--format md\|html\|pdf\|docx] [--share]` | Compile responses into one document; always writes `status.json`. |
+| `grantkit build [--format md\|html\|pdf\|docx] [--share]` | Compile responses into one review document; always writes `status.json`. |
 | `grantkit review [--pack]` | Emit a structured review packet for an AI agent (no AI calls). |
 | `grantkit status [--json]` | Completion %, per-section word counts, deadline countdown. |
 | `grantkit budget [--selection ID] [--check]` | Compile a budget from a priced work-item menu + rates + a selection. |
 
 Every verb takes an optional path (default `.`) — the grant directory,
 or for `budget` a portfolio directory.
+
+For NSF projects, `build --format pdf` creates a combined, visibly labelled
+review copy. It is not an NSF submission artifact: upload or enter every
+required section separately in Research.gov. Citation markers such as
+`[@key]` remain raw authoring text in the review build.
 
 ## What check catches
 
@@ -73,9 +78,11 @@ or for `budget` a portfolio directory.
 - Citations (`[@key]`) that don't resolve against `references.bib`.
 - Budget arithmetic (fringe/indirect) and funder caps; optional BLS salary and
   GSA per-diem sanity when those API keys are set.
-- Funder formatting rules from the rule pack — including the full NSF PAPPG
-  content engine (prohibited URLs/emails, required Intellectual Merit / Broader
-  Impacts, etc.).
+- Machine-checkable funder rules from the pack — including NSF checks for
+  prohibited Project Description URLs, the Project Summary's required
+  components, and the Project Description's required Broader Impacts heading.
+  Portal, rendered-layout, and substantive judgments remain explicit review
+  items rather than inferred compliance.
 - US/UK spelling for the funder's locale.
 - Link liveness (`--urls`, opt-in — the only thing that touches the network).
 
@@ -83,12 +90,13 @@ or for `budget` a portfolio directory.
 
 A **rule pack** is a YAML file under `grantkit/data/funders/` describing one
 funder: its sections and limits, formatting rules (each with a citation),
-budget caps, portal quirks, spelling locale, and review rubric. Three ship
+budget caps, portal quirks, spelling locale, and review rubric. Four ship
 today:
 
 | Pack id | Funder | Notes |
 |---------|--------|-------|
-| `nsf-pappg` | National Science Foundation | PAPPG 24-1; full content engine + merit-review rubric. |
+| `nsf-pappg` | National Science Foundation | PAPPG 24-1 machine-checkable content rules + merit-review rubric. |
+| `nsf-pesose-26-506-track-2` | National Science Foundation | PESOSE Track 2 solicitation, attachments, budget-preparation evidence, and readiness gates. |
 | `nuffield-rda` | Nuffield Foundation | RDA full application; en-GB; plain-text portal. |
 | `pbif` | Public Benefit Innovation Fund | Section list only; no limits published. |
 

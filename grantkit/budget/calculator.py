@@ -258,13 +258,18 @@ class BudgetCalculator:
     def calculate_indirect_costs(self) -> Dict[str, Any]:
         """Calculate indirect costs based on MTDC.
 
-        MTDC = total direct - equipment - participant support
+        ``indirect_costs.base_amount`` may provide a verified year-by-year
+        base.  This is necessary when the applicable base has exclusions the
+        legacy compact calculator cannot infer from line-item labels.  Without
+        it, preserve the historical fallback of total direct costs less
+        equipment and participant support.
 
         Returns:
             Dict with year_1, year_2, ..., year_N, total, and rate keys
         """
         indirect_spec = self.data.get("indirect_costs", {})
         rate = indirect_spec.get("rate", 0)
+        explicit_base = indirect_spec.get("base_amount")
 
         direct = self.calculate_total_direct_costs()
         equipment = self.calculate_equipment()
@@ -275,10 +280,15 @@ class BudgetCalculator:
 
         for year in range(1, self.years + 1):
             year_key = f"year_{year}"
-            mtdc = (
-                direct[year_key] - equipment[year_key] - participant[year_key]
-            )
-            indirect = int(mtdc * rate)
+            if isinstance(explicit_base, dict) and year_key in explicit_base:
+                indirect_base = explicit_base[year_key]
+            else:
+                indirect_base = (
+                    direct[year_key]
+                    - equipment[year_key]
+                    - participant[year_key]
+                )
+            indirect = int(indirect_base * rate)
             totals[year_key] = indirect
             grand_total += indirect
 

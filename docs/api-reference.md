@@ -48,10 +48,16 @@ The shape of `status` is the [status.json contract](artifacts.md).
 from grantkit.core.builder import build_project
 
 result = build_project(project, fmt="pdf", share=True)
-result.document_path   # proposal.pdf
+result.document_path   # proposal.pdf (a combined review copy for NSF)
 result.share_path      # assembled.html (when share=True)
 result.status_path     # status.json
+result.warnings        # review/submission caveats surfaced by the builder
 ```
+
+For NSF projects, the PDF uses current NSF-safe page and font defaults but is
+explicitly a combined review copy, not a submission artifact. Upload or enter
+the required sections separately in Research.gov. Citation markers remain raw
+authoring text in this build.
 
 ## Review packet
 

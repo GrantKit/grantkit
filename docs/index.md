@@ -4,8 +4,8 @@
 the AI.
 
 GrantKit is a stateless, local-first engine. It reads a `grant.yaml` plus your
-Markdown responses, then lints them, compiles them into one submission
-document, and reports a machine-readable status — with no cloud service and no
+Markdown responses, then lints them, compiles them into one review document,
+and reports a machine-readable status — with no cloud service and no
 AI calls of its own. You point Claude Code (or any agent) at the files to do
 the writing; GrantKit keeps them correct.
 
@@ -36,10 +36,14 @@ grantkit build --format pdf --share    # compile + shareable review page
 |------|--------------|
 | `init` | Scaffold a grant project (optionally from a funder pack). |
 | `check` | Lint the proposal; non-zero exit on errors. |
-| `build` | Compile responses into one document; always writes `status.json`. |
+| `build` | Compile responses into one review document; always writes `status.json`. |
 | `review` | Emit a review packet for an AI agent (no AI calls). |
 | `status` | Completion %, per-section word counts, deadline countdown. |
 | `budget` | Compile a budget from a priced work-item menu + rates + a selection. |
+
+For NSF projects, `build --format pdf` produces a combined internal review
+copy, not a Research.gov upload. Required sections must be uploaded or entered
+separately, and raw `[@key]` citation markers are not rendered by `build`.
 
 ## Next steps
 

@@ -1,7 +1,8 @@
 # Citation management
 
 GrantKit uses pandoc-style `[@key]` citations backed by a `references.bib`
-BibTeX database. `grantkit check` verifies that every citation resolves.
+BibTeX database. `grantkit check` verifies that every citation key has a
+matching entry; it does not render or format citations.
 
 ## How it flows
 
@@ -11,8 +12,9 @@ BibTeX database. `grantkit check` verifies that every citation resolves.
    resolve against `references.bib` (`unresolved_citation`), plus malformed
    citation syntax (`citation_syntax`) and citations used with no bib present
    (`missing_references_bib`).
-4. **`grantkit build`** assembles the sections; your BibTeX travels with the
-   project in git.
+4. **`grantkit build`** assembles the sections but leaves every `[@key]`
+   marker as raw authoring text. Your BibTeX travels with the project in git;
+   the build is not a rendered bibliography.
 
 ## references.bib
 
@@ -55,7 +57,9 @@ Multiple sources confirm this [@smith_example_2024; @doe_study_2023].
 ```
 
 Don't hardcode `(Smith, 2024)` — use the key so the linter can verify it and
-tools can render it consistently.
+external citation tooling can render it consistently. Before submission,
+render the intended inline citation style and prepare any separate references
+upload required by the funder.
 
 ## Checking citations
 

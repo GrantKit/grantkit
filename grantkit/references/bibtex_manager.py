@@ -269,58 +269,56 @@ class BibTeXManager:
 
         return matches
 
-    def validate_entries(self) -> List[str]:
-        """Validate bibliography entries and return list of issues."""
+    def validate_entries(self, keys: Optional[Set[str]] = None) -> List[str]:
+        """Validate NSF bibliography completeness for selected entries."""
         issues = []
 
         for key, entry in self.entries.items():
-            # Check required fields based on entry type
-            if entry.entry_type.lower() == "article":
-                required_fields = ["title", "authors", "journal", "year"]
-                for field in required_fields:
-                    value = getattr(entry, field)
-                    if not value or (isinstance(value, list) and not value):
-                        issues.append(
-                            f"Entry '{key}': Missing required field '{field}' for article"
-                        )
+            if keys is not None and key not in keys:
+                continue
 
-            elif entry.entry_type.lower() == "book":
-                required_fields = ["title", "authors", "year"]
-                for field in required_fields:
-                    value = getattr(entry, field)
-                    if not value or (isinstance(value, list) and not value):
-                        issues.append(
-                            f"Entry '{key}': Missing required field '{field}' for book"
-                        )
+            entry_type = entry.entry_type.lower()
+            required_fields = ["title", "authors", "year"]
+            if entry_type == "article":
+                required_fields += ["journal", "volume", "pages"]
+            elif entry_type == "inproceedings":
+                required_fields += ["pages"]
 
-            # Check for suspicious URLs or DOIs
-            if entry.url and not self._is_valid_url_for_nsf(entry.url):
+            for field in required_fields:
+                value = getattr(entry, field)
+                if not value or (isinstance(value, list) and not value):
+                    issues.append(
+                        f"Entry '{key}': Missing required field '{field}' "
+                        f"for {entry_type}"
+                    )
+
+            raw_required = []
+            if entry_type == "book":
+                raw_required.append("publisher")
+            elif entry_type == "inproceedings":
+                raw_required.append("booktitle")
+            elif entry_type in ("techreport", "report"):
+                raw_required.append("institution")
+            for field in raw_required:
+                if not entry.raw_entry.get(field):
+                    issues.append(
+                        f"Entry '{key}': Missing required field '{field}' "
+                        f"for {entry_type}"
+                    )
+
+            raw_authors = str(entry.raw_entry.get("author", ""))
+            if re.search(
+                r"(?:\band\s+others\b|\bet\s+al\.?)",
+                raw_authors,
+                re.IGNORECASE,
+            ):
                 issues.append(
-                    f"Entry '{key}': URL may not be appropriate for NSF proposal: {entry.url}"
+                    f"Entry '{key}': Author list is truncated; NSF "
+                    "References Cited requires every author in publication "
+                    "order"
                 )
 
         return issues
-
-    def _is_valid_url_for_nsf(self, url: str) -> bool:
-        """Check if URL is appropriate for NSF proposals."""
-        # Allow academic, institutional, and DOI URLs
-        allowed_patterns = [
-            r"doi\.org",
-            r"\.edu",
-            r"\.gov",
-            r"arxiv\.org",
-            r"ieee\.org",
-            r"acm\.org",
-            r"springer\.com",
-            r"elsevier\.com",
-            r"nature\.com",
-            r"science\.org",
-        ]
-
-        url_lower = url.lower()
-        return any(
-            re.search(pattern, url_lower) for pattern in allowed_patterns
-        )
 
     def export_used_entries(
         self, used_keys: Set[str], output_path: Path

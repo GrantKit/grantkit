@@ -36,12 +36,12 @@ class CitationReport:
 class CitationExtractor:
     """Extracts and processes citations from markdown content."""
 
-    # Citation patterns - supports various formats
+    # Citation patterns. Plain ``[label]`` text is deliberately not treated
+    # as a citation: it is ordinary Markdown/prose and produced false hard
+    # errors for labels such as ``[Figure]`` and ``[Appendix]``.
     CITATION_PATTERNS = [
         # Standard pandoc-style: [@key], [@key1; @key2], [@key, p. 42]
         r"\[@([^]]+)\]",
-        # Alternative bracket style: [key]
-        r"\[([a-zA-Z][a-zA-Z0-9_:-]*)\](?!\()",  # Not followed by ( to avoid markdown links
         # LaTeX-style: \cite{key}
         r"\\cite\{([^}]+)\}",
         # Multiple citations: \cite{key1,key2}
@@ -300,12 +300,23 @@ class CitationExtractor:
                 r"\[[^@][^]]*\]\([^)]*\)",
                 "Possible markdown link mistaken for citation",
             ),
-            (r"@[a-zA-Z0-9_:-]+(?!\]|[,;])", "Bare @ symbol without brackets"),
         ]
 
         for line_num, line in enumerate(lines, 1):
             for pattern, description in malformed_patterns:
                 if re.search(pattern, line):
                     issues.append(f"Line {line_num}: {description}")
+
+            # Remove complete Pandoc citation groups before looking for a
+            # genuinely bare citation key. Searching the original line lets
+            # the regex engine backtrack into valid ``[@one; @two]`` groups.
+            without_groups = re.sub(r"\[@[^]]+\]", "", line)
+            if re.search(
+                r"(?<![A-Za-z0-9_.+-])@[A-Za-z][A-Za-z0-9_:-]*\b",
+                without_groups,
+            ):
+                issues.append(
+                    f"Line {line_num}: Bare @ symbol without brackets"
+                )
 
         return issues

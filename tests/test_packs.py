@@ -11,7 +11,12 @@ from grantkit.packs import (
 )
 from grantkit.packs.schema import FunderPack
 
-EXPECTED_PACKS = {"nsf-pappg", "nuffield-rda", "pbif"}
+EXPECTED_PACKS = {
+    "nsf-pappg",
+    "nsf-pesose-26-506-track-2",
+    "nuffield-rda",
+    "pbif",
+}
 
 
 def test_all_packs_present():
@@ -128,6 +133,79 @@ def test_schema_rejects_wrong_shaped_known_fields(extra):
     assert validate_pack(data)
 
 
+@pytest.mark.parametrize(
+    "extra, needle",
+    [
+        ({"extends": ""}, "extends"),
+        ({"proposal_rules": {"title_prefix": ""}}, "title_prefix"),
+        (
+            {
+                "attachment_groups": [
+                    {"id": "letters", "title": "Letters", "glob": "../*.pdf"}
+                ]
+            },
+            "within the grant project",
+        ),
+        (
+            {
+                "attachment_groups": [
+                    {
+                        "id": "letters",
+                        "title": "Letters",
+                        "glob": "letters/*.pdf",
+                        "page_limit_each": 0,
+                    }
+                ]
+            },
+            "positive integer",
+        ),
+        (
+            {"budget_rules": {"preparation": {"bls_salary_percentile": 101}}},
+            "bls_salary_percentile",
+        ),
+        (
+            {
+                "budget_rules": {
+                    "preparation": {
+                        "materials_explanation_threshold_fraction": 0
+                    }
+                }
+            },
+            "materials_explanation_threshold_fraction",
+        ),
+        (
+            {
+                "budget_rules": {
+                    "preparation": {
+                        "equity_owner_payment_channels": ["employee"]
+                    }
+                }
+            },
+            "unknown channel",
+        ),
+        (
+            {"budget_rules": {"preparation": {"max_budget_years": 0}}},
+            "max_budget_years",
+        ),
+        (
+            {
+                "budget_rules": {
+                    "preparation": {
+                        "indirect_base_amount_verification_required": "yes"
+                    }
+                }
+            },
+            "indirect_base_amount_verification_required",
+        ),
+    ],
+)
+def test_schema_rejects_invalid_inheritance_and_attachment_rules(
+    extra, needle
+):
+    errors = validate_pack({"id": "x", "name": "X", **extra})
+    assert any(needle in error for error in errors)
+
+
 @pytest.mark.parametrize("value", ["\ud800", "\x1b[31m", "\x00"])
 def test_schema_rejects_unsafe_pack_text(value):
     assert validate_pack({"id": "x", "name": value})
@@ -151,7 +229,8 @@ def test_nsf_pack_preserves_rules_and_citations():
     pack = load_pack("nsf-pappg")
     assert pack.content_engine == "nsf_pappg"
     assert pack.locale == "en-US"
-    # A substantial rule set carried over from nsf_formatting_rules.yaml.
+    # The stable base pack retains its folded legacy rule inventory. Programs
+    # that need current metadata can replace this list through inheritance.
     assert len(pack.formatting_rules) >= 25
     # Every rule carries a citation.
     for rule in pack.formatting_rules:
@@ -166,11 +245,165 @@ def test_nsf_pack_preserves_rules_and_citations():
         "required_broader_impacts",
     ):
         assert expected in ids
-    # Citations point at the PAPPG URL.
     assert any(r.url and "nsf24001" in r.url for r in pack.formatting_rules)
     # NSF merit-review rubric is available for `grantkit review`.
     rubric_ids = {c.id for c in pack.review_rubric}
     assert {"intellectual_merit", "broader_impacts"} <= rubric_ids
+
+
+def test_pesose_track_2_pack_inherits_nsf_and_encodes_solicitation():
+    pack = load_pack("nsf-pesose-26-506-track-2")
+    assert pack.extends == "nsf-pappg"
+    assert pack.content_engine == "nsf_pesose_26_506_track_2"
+    assert pack.proposal_rules is not None
+    assert pack.proposal_rules.title_prefix == "PESOSE: Track 2: "
+    assert pack.proposal_rules.max_duration_months == 24
+    assert pack.budget_rules is not None
+    assert pack.budget_rules.total_cap == 1_500_000
+    assert pack.budget_rules.indirect_rate_max is None
+    preparation = pack.budget_rules.preparation
+    assert preparation is not None
+    assert preparation.max_budget_years == 2
+    assert preparation.institutional_salary_org_types == [
+        "higher_education",
+        "state_government",
+        "local_government",
+    ]
+    assert preparation.bls_salary_org_types == ["nonprofit", "for_profit"]
+    assert preparation.bls_salary_percentile == 75
+    assert preparation.lines_ab_employee_only is True
+    assert preparation.salary_months_justification_threshold == 2
+    assert preparation.materials_explanation_threshold_fraction == 0.10
+    assert preparation.consultant_statement_threshold == 50_000
+    assert preparation.subaward_ip_rights_agreement_required is True
+    assert preparation.subaward_equipment_allowed is False
+    assert preparation.de_minimis_indirect_rate == 0.15
+    assert preparation.de_minimis_indirect_base == "mtdc"
+    assert preparation.indirect_base_amount_verification_required is True
+    assert preparation.salary_hourly_month_hours == 173.33
+    assert preparation.main_equipment_necessity_required is True
+    assert preparation.travel_cost_rules == {
+        "for_profit": "48_cfr_31_205_46",
+        "default": "2_cfr_200_475",
+    }
+    assert preparation.consultant_justification_fields == [
+        "time_commitment",
+        "consultant_rate",
+        "responsibilities",
+        "total_requested",
+    ]
+    assert preparation.line_g_services_description_required is True
+    assert preparation.icorps_budget_cap == 30_000
+    assert preparation.icorps_required_team_roles == [
+        "technical_lead",
+        "entrepreneurial_lead",
+        "industry_mentor",
+    ]
+    assert preparation.icorps_team_size_manual_review_max == 3
+    assert preparation.icorps_training_format == "virtual"
+    assert preparation.url and preparation.url.endswith("/updates/120507")
+
+    limits = {section.id: section.page_limit for section in pack.sections}
+    assert limits["project_summary"] == 1
+    assert limits["project_description"] == 15
+    assert limits["budget_justification"] == 5
+    dmsp = next(
+        section
+        for section in pack.sections
+        if section.id == "data_management_and_sharing_plan"
+    )
+    assert dmsp.format == "fields"
+    assert dmsp.stage == "research_gov_webform"
+
+    # The conditional facilities-continuation letter is separate from the
+    # 3-5 third-party letters, so the programmatic PESOSE validator owns the
+    # nuanced inventory and page-count reconciliation.
+    assert pack.attachment_groups == []
+
+    effective_rule_ids = {rule.id for rule in pack.formatting_rules}
+    assert {
+        "font_approved_families_and_sizes",
+        "margins_minimum",
+        "project_summary_required_components",
+        "project_description_required_broader_impacts",
+        "no_urls_in_project_description",
+    } <= effective_rule_ids
+    assert "required_overview" not in effective_rule_ids
+    font_rule = next(
+        rule
+        for rule in pack.formatting_rules
+        if rule.id == "font_approved_families_and_sizes"
+    )
+    assert "Arial" in font_rule.description
+    assert "Times New Roman" in font_rule.description
+    assert "11 points" in font_rule.description
+    assert font_rule.citation == "PAPPG 24-1 II.C.2.a"
+    assert font_rule.url and font_rule.url.endswith("#2C2")
+    for rule_id in (
+        "font_exception_scope",
+        "uploaded_sections_use_same_formatting",
+    ):
+        rule = next(
+            rule for rule in pack.formatting_rules if rule.id == rule_id
+        )
+        assert rule.severity == "error"
+    pagination_rule = next(
+        rule
+        for rule in pack.formatting_rules
+        if rule.id == "omit_proposer_page_numbers"
+    )
+    assert pagination_rule.citation == "PAPPG 24-1 II.C.1"
+    assert pagination_rule.url and pagination_rule.url.endswith("#2C1")
+    rubric_ids = {criterion.id for criterion in pack.review_rubric}
+    assert {"intellectual_merit", "broader_impacts"} <= rubric_ids
+    assert {
+        "societal_or_national_importance",
+        "long_term_sustainability",
+        "contributor_community_and_organization",
+        "licensing_approach",
+        "build_test_quality_and_security",
+        "milestones_and_evaluation",
+    } <= rubric_ids
+
+
+def test_pack_inheritance_merges_mappings_and_replaces_lists(monkeypatch):
+    from grantkit.packs import registry
+
+    packs = {
+        "base": {
+            "id": "base",
+            "name": "Base",
+            "budget_rules": {"total_cap": None, "currency": "USD"},
+            "sections": [{"id": "base", "title": "Base"}],
+        },
+        "child": {
+            "id": "child",
+            "name": "Child",
+            "extends": "base",
+            "budget_rules": {"total_cap": 10},
+            "sections": [{"id": "child", "title": "Child"}],
+        },
+    }
+    monkeypatch.setattr(registry, "load_pack_dict", packs.__getitem__)
+    resolved = registry._resolve_pack_dict("child")
+    assert resolved["budget_rules"] == {"total_cap": 10, "currency": "USD"}
+    assert resolved["sections"] == [{"id": "child", "title": "Child"}]
+
+
+def test_pack_inheritance_rejects_cycles_and_unknown_parents(monkeypatch):
+    from grantkit.packs import registry
+
+    packs = {
+        "a": {"id": "a", "name": "A", "extends": "b"},
+        "b": {"id": "b", "name": "B", "extends": "a"},
+    }
+    monkeypatch.setattr(registry, "load_pack_dict", packs.__getitem__)
+    with pytest.raises(ValueError, match="inheritance cycle"):
+        registry._resolve_pack_dict("a")
+
+    packs["a"]["extends"] = "missing"
+    with pytest.raises(KeyError, match="extends unknown pack"):
+        registry._resolve_pack_dict("a")
 
 
 # -- Nuffield pack: values sourced from the reference grant -------------

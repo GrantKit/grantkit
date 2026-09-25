@@ -190,6 +190,39 @@ class TestBudgetCalculator:
         assert totals["year_1"] == 20475
         assert totals["rate"] == 0.10
 
+    def test_verified_indirect_base_amount_overrides_legacy_mtdc(
+        self, tmp_path
+    ):
+        """Use an explicit base when line labels cannot express exclusions."""
+        budget = {
+            "years_in_budget": 2,
+            "personnel": {"senior_key": [], "other": []},
+            "fringe_benefits": {},
+            "equipment": [],
+            "travel": {"domestic": [], "foreign": []},
+            "participant_support": [],
+            "other_direct_costs": [
+                {
+                    "category": "Subaward",
+                    "year_1": 75_000,
+                    "year_2": 25_000,
+                }
+            ],
+            "indirect_costs": {
+                "rate": 0.15,
+                "base": "mtdc",
+                "base_amount": {"year_1": 50_000, "year_2": 0},
+            },
+        }
+        path = tmp_path / "budget.yaml"
+        path.write_text(yaml.safe_dump(budget), encoding="utf-8")
+
+        totals = BudgetCalculator(path).calculate_indirect_costs()
+
+        assert totals["year_1"] == 7_500
+        assert totals["year_2"] == 0
+        assert totals["total"] == 7_500
+
     def test_calculate_grand_total(self, budget_yaml_path):
         """Should calculate grand total."""
         calc = BudgetCalculator(budget_yaml_path)

@@ -6,6 +6,7 @@ each filename is the pack id (e.g. ``nsf-pappg.yaml`` -> ``nsf-pappg``).
 
 from __future__ import annotations
 
+from copy import deepcopy
 from importlib.resources import files
 from pathlib import Path
 from typing import Optional
@@ -55,12 +56,52 @@ def load_pack(pack_id: str) -> FunderPack:
         KeyError: if no pack with that id exists.
         ValueError: if the pack fails schema validation.
     """
-    data = load_pack_dict(pack_id)
+    data = _resolve_pack_dict(pack_id)
     errors = validate_pack(data)
     if errors:
         joined = "\n  - ".join(errors)
         raise ValueError(f"Invalid funder pack '{pack_id}':\n  - {joined}")
     return FunderPack.from_dict(data)
+
+
+def _resolve_pack_dict(pack_id: str, stack: tuple[str, ...] = ()) -> dict:
+    """Return a pack with its parent packs merged in.
+
+    Mappings merge recursively. Any child scalar or list replaces the parent
+    value. Keeping list replacement explicit prevents accidental inheritance
+    of section tables or review rubrics that a program overrides wholesale.
+    """
+    if pack_id in stack:
+        cycle = " -> ".join((*stack, pack_id))
+        raise ValueError(f"Funder-pack inheritance cycle: {cycle}")
+
+    data = load_pack_dict(pack_id)
+    raw_errors = validate_pack(data)
+    if raw_errors:
+        joined = "\n  - ".join(raw_errors)
+        raise ValueError(f"Invalid funder pack '{pack_id}':\n  - {joined}")
+
+    parent_id = data.get("extends")
+    if not parent_id:
+        return data
+    try:
+        parent = _resolve_pack_dict(parent_id, (*stack, pack_id))
+    except KeyError as exc:
+        raise KeyError(
+            f"Funder pack '{pack_id}' extends unknown pack " f"'{parent_id}'."
+        ) from exc
+    return _deep_merge(parent, data)
+
+
+def _deep_merge(parent: dict, child: dict) -> dict:
+    """Merge two pack dictionaries without mutating either input."""
+    merged = deepcopy(parent)
+    for key, value in child.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = deepcopy(value)
+    return merged
 
 
 def resolve_pack(funder: Optional[str]) -> Optional[FunderPack]:

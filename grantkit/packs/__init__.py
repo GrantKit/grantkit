@@ -18,11 +18,14 @@ from .registry import (
     resolve_pack,
 )
 from .schema import (
+    AttachmentGroup,
+    BudgetPreparationRules,
     BudgetRules,
     FormattingRule,
     FunderPack,
     PackSection,
     PortalQuirks,
+    ProposalRules,
     RubricCriterion,
     validate_pack,
 )
@@ -31,7 +34,10 @@ __all__ = [
     "FunderPack",
     "PackSection",
     "FormattingRule",
+    "BudgetPreparationRules",
     "BudgetRules",
+    "ProposalRules",
+    "AttachmentGroup",
     "PortalQuirks",
     "RubricCriterion",
     "validate_pack",

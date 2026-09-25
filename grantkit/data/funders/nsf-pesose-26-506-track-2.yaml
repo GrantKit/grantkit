@@ -1,0 +1,407 @@
+# NSF Pathways to Enable Secure Open-Source Ecosystems (PESOSE), Track 2
+#
+# This program pack overlays the NSF-wide PAPPG rules with the requirements
+# specific to Track 2 of solicitation NSF 26-506. Lists replace their parent
+# values, so the sections and review rubric below are complete Track 2 lists;
+# portal behavior continues to come from nsf-pappg. The formatting list below
+# replaces the parent's legacy metadata with the current PAPPG 24-1 rules.
+#
+# Primary source (posted February 19, 2026):
+# https://www.nsf.gov/funding/opportunities/pesose-pathways-enable-secure-open-source-ecosystems/nsf26-506/solicitation
+# Experiential-activity and budget-preparation update (March 9, 2026):
+# https://www.nsf.gov/funding/opportunities/pesose-pathways-enable-secure-open-source-ecosystems/updates/120507
+# Updated I-Corps training format and expected team size (August 12, 2026):
+# https://www.nsf.gov/funding/opportunities/pesose-pathways-enable-secure-open-source-ecosystems/updates/120938
+# Current DMSP submission method and fields:
+# https://www.nsf.gov/policies/document/pappg24-1-supplement-2
+# https://www.nsf.gov/eng/data-management-sharing-plans
+
+id: nsf-pesose-26-506-track-2
+name: National Science Foundation
+program: "PESOSE: Track 2: Establishing and expanding"
+version: "26-506"
+source_url: https://www.nsf.gov/funding/opportunities/pesose-pathways-enable-secure-open-source-ecosystems/nsf26-506/solicitation
+extends: nsf-pappg
+locale: en-US
+provenance: >-
+  Track 2 proposal-preparation, budget, supplementary-document, and additional
+  review criteria transcribed from NSF solicitation 26-506, sections III, V.A,
+  V.B, and VI.A (posted 2026-02-19). The Research.gov Data Management and
+  Sharing Plan section reflects NSF 26-202 (PAPPG 24-1 Supplement 2, effective
+  2026-01-22; web tool released 2026-04-27) and NSF ENG's field list, updated
+  July 2026. Budget-preparation requirements and recommendations are
+  transcribed with their original must/should/may force from NSF's PESOSE
+  update dated 2026-03-09. I-Corps context also reflects NSF's
+  2026-08-12 update. Portal behavior and the standard merit-review rubric are
+  inherited from nsf-pappg; the current NSF-wide formatting rules are restated
+  below because list-valued child fields replace their parent values.
+content_engine: nsf_pesose_26_506_track_2
+
+# Current PAPPG 24-1 formatting and section-content rules presented by
+# `grantkit review --pack`. Programmatic checks enforce the machine-readable
+# subset; PDF and portal properties still require rendered/Research.gov review.
+formatting_rules:
+  - id: font_approved_families_and_sizes
+    description: >-
+      Use Arial (not Arial Narrow), Courier New, or Palatino Linotype at 10
+      points or larger; or Times New Roman or Computer Modern at 11 points or
+      larger. Macintosh users also may use Helvetica and Palatino.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.a
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-2-proposal-preparation#2C2
+  - id: font_exception_scope
+    description: >-
+      Fonts below 10 points and otherwise unlisted fonts may be used only for
+      mathematical formulas or equations, figures, tables, diagram captions,
+      symbols, Greek letters, or special characters, and must remain readable.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.a
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-2-proposal-preparation#2C2
+  - id: line_density_maximum
+    description: No more than six lines of text may appear in one vertical inch.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.b
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-2-proposal-preparation#2C2
+  - id: margins_minimum
+    description: >-
+      Margins in all directions must be at least one inch, with no
+      proposer-supplied information in the margins.
+    severity: error
+    citation: PAPPG 24-1 II.C.2.c
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-2-proposal-preparation#2C2
+  - id: paper_size_maximum
+    description: >-
+      Paper must be no larger than standard letter size (8.5 by 11 inches or
+      11 by 8.5 inches).
+    severity: error
+    citation: PAPPG 24-1 II.C.2.d
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-2-proposal-preparation#2C2
+  - id: uploaded_sections_use_same_formatting
+    description: >-
+      Font, spacing, margin, and paper-size requirements apply to every
+      uploaded proposal section, including supplementary documentation.
+    severity: error
+    citation: PAPPG 24-1 II.C.2
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-2-proposal-preparation#2C2
+  - id: omit_proposer_page_numbers
+    description: >-
+      Leave page numbering out of files uploaded through Research.gov unless
+      Research.gov directs otherwise; the system paginates the proposal.
+    severity: warning
+    citation: PAPPG 24-1 II.C.1
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-2-proposal-preparation#2C1
+  - id: project_summary_required_components
+    description: >-
+      The one-page Project Summary must contain an overview, an Intellectual
+      Merit statement, and a Broader Impacts statement.
+    severity: error
+    citation: PAPPG 24-1 II.D.2.b
+    applies_to: project_summary
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-2-proposal-preparation#2D2b
+  - id: project_description_required_broader_impacts
+    description: >-
+      The Project Description must contain a separate section labeled
+      "Broader Impacts," with that heading on its own line.
+    severity: error
+    citation: PAPPG 24-1 II.D.2.d(i)
+    applies_to: project_description
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-2-proposal-preparation#2D2d
+  - id: no_urls_in_project_description
+    description: The self-contained Project Description must not contain URLs.
+    severity: error
+    citation: PAPPG 24-1 II.D.2.d(ii)
+    applies_to: project_description
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-2-proposal-preparation#2D2d
+  - id: references_bibliographic_citations_only
+    description: >-
+      References Cited must contain bibliographic citations only and must not
+      carry narrative information outside the Project Description page limit.
+    severity: error
+    citation: PAPPG 24-1 II.D.2.e
+    applies_to: references
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-2-proposal-preparation#2D2e
+  - id: researchgov_pdf_properties
+    description: >-
+      Before upload, verify that each PDF is under 10 MB, is not encrypted or
+      password protected, contains no portfolio, and has embedded fonts.
+    severity: error
+    citation: Research.gov Proposal Compliance Checks, January 2023
+    url: https://www.nsf.gov/bfa/dias/policy/autocheck/rgovcompliancechecks_jan2023.pdf
+
+# This list replaces the parent section list. It represents author-managed
+# files and Research.gov fields; Research.gov generates the table of contents
+# and collects budgets and senior/key-person documents separately.
+sections:
+  - id: project_summary
+    title: Project Summary
+    page_limit: 1
+    required: true
+    file: responses/project_summary.md
+    description: >-
+      One page with Overview, Intellectual Merit, and Broader Impacts. Its last
+      nonblank line must contain a prioritized list of 2-5 semicolon-separated
+      keywords or phrases; NSF says that line should begin "Keywords:" (NSF
+      26-506 V.A, Project Summary; PAPPG 24-1 II.D.2.b).
+  - id: project_description
+    title: Project Description
+    page_limit: 15
+    required: true
+    file: responses/project_description.md
+    description: >-
+      Track 2 narrative. It must address the existing public open-source
+      product, its current development/testing/dissemination/user/contributor
+      status, the problem, and team qualifications; NSF says it should address
+      the Track 2 activity areas. A prior Track 1 I-Corps waiver requires its
+      activity dates on the first line and outcomes in the body (NSF 26-506
+      V.A, Project Description and Experiential Activities).
+  - id: references
+    title: References Cited
+    required: true
+    file: responses/references.md
+    description: >-
+      Bibliographic citations, including the citation that points reviewers to
+      the publicly available open-source product without placing a URL in the
+      Project Description (NSF 26-506 V.A; PAPPG 24-1 II.D.2.e).
+  - id: budget_justification
+    title: Budget Justification
+    page_limit: 5
+    required: true
+    file: responses/budget_justification.md
+    description: >-
+      Justification for each requested budget line. The five-page limit applies
+      per proposal; each subaward has a separate five-page justification
+      (PAPPG 24-1 II.D.2.f).
+  - id: facilities_equipment_other_resources
+    title: Facilities, Equipment and Other Resources
+    required: true
+    file: responses/facilities_resources.md
+    description: >-
+      Narrative description of directly applicable internal and external
+      resources, without quantifiable financial information (PAPPG 24-1
+      II.D.2.g).
+  - id: data_management_and_sharing_plan
+    title: Data Management and Sharing Plan
+    required: true
+    file: responses/data_management_and_sharing_plan.md
+    stage: research_gov_webform
+    format: fields
+    description: >-
+      Research.gov webform, not a two-page PDF. Describe up to four data or
+      research products. For each, prepare: data or research product category;
+      access policies and limitations; data standards and metadata; data or
+      research product provenance; public archiving; timeline for public
+      accessibility; data availability; and accountability (NSF 26-202;
+      Research.gov DMSP tool; NSF ENG DMSP guidance, updated July 2026).
+  - id: personnel_collaborators
+    title: List of Project Personnel, Collaborators, and Partner Organizations
+    required: true
+    file: responses/personnel_collaborators.md
+    description: >-
+      Required supplementary document covering everyone specified by the
+      solicitation. NSF says the list should use a table with the columns Full
+      name, Organization(s), and Role in the project, in that order (NSF
+      26-506 V.A, Other Supplementary Documents item 2).
+  - id: mentoring_plan
+    title: Mentoring Plan
+    page_limit: 1
+    required: false
+    file: responses/mentoring_plan.md
+    description: >-
+      Required only if the proposal requests support for postdoctoral scholars
+      or graduate students; one page maximum for the unified project (PAPPG
+      24-1 II.D.2.i.(i)).
+
+budget_rules:
+  total_cap: 1500000
+  annual_cap: null
+  indirect_rate_max: null
+  currency: USD
+  notes: >-
+    Track 2 requests may not exceed USD 1,500,000 for up to two years. NSF
+    26-506 states that indirect-cost limitations are not applicable and
+    prohibits voluntary committed cost sharing (NSF 26-506 III and V.B). The
+    structured preparation contract below comes from NSF's PESOSE budget update
+    dated March 9, 2026.
+  preparation:
+    max_budget_years: 2
+    institutional_salary_org_types:
+      - higher_education
+      - state_government
+      - local_government
+    bls_salary_org_types:
+      - nonprofit
+      - for_profit
+    bls_salary_percentile: 75
+    lines_ab_employee_only: true
+    personnel_justification_fields_required: true
+    salary_months_justification_threshold: 2
+    salary_hourly_month_hours: 173.33
+    fringe_justification_fields:
+      - rate
+      - base
+      - breakdown
+      - salary_escalation_rates
+    main_equipment_necessity_required: true
+    travel_breakdown_format: table
+    travel_cost_rules:
+      for_profit: 48_cfr_31_205_46
+      default: 2_cfr_200_475
+    materials_explanation_threshold_fraction: 0.10
+    consultant_statement_threshold: 50000
+    consultant_justification_fields:
+      - time_commitment
+      - consultant_rate
+      - responsibilities
+      - total_requested
+    equity_owner_payment_channels:
+      - consultant
+      - contractor
+      - subaward
+    subaward_detail_required: true
+    subaward_ip_rights_agreement_required: true
+    subaward_equipment_allowed: false
+    line_g_services_description_required: true
+    de_minimis_indirect_rate: 0.15
+    de_minimis_indirect_base: mtdc
+    indirect_base_amount_verification_required: true
+    icorps_budget_cap: 30000
+    icorps_required_team_roles:
+      - technical_lead
+      - entrepreneurial_lead
+      - industry_mentor
+    icorps_allowed_cost_types:
+      - virtual_participation_tool
+      - headset
+      - recommended_book
+      - conference_registration
+      - domestic_travel
+      - entrepreneurial_lead_salary
+      - technical_lead_salary
+      - industry_mentor_support
+      - fringe_benefits
+    icorps_prohibited_cost_types:
+      - interview_incentive_gift
+      - interview_incentive_gift_certificate
+      - interview_incentive_meal
+      - interview_incentive_beverage
+      - marketing
+      - sales
+      - survey_tool
+      - international_travel
+      - conference_booth
+    icorps_current_salary_cap_roles:
+      - technical_lead
+      - entrepreneurial_lead
+    icorps_domestic_travel_only: true
+    icorps_team_agreement_required: true
+    # The later update says a maximum of three members is expected, while the
+    # March update permits co-TLs/co-ELs. Treat over three as manual review.
+    icorps_team_size_manual_review_max: 3
+    icorps_training_format: virtual
+    icorps_context_url: https://www.nsf.gov/funding/opportunities/pesose-pathways-enable-secure-open-source-ecosystems/updates/120938
+    citation: >-
+      NSF PESOSE update, PESOSE budget and budget justification items 1-13
+      (March 9, 2026)
+    url: https://www.nsf.gov/funding/opportunities/pesose-pathways-enable-secure-open-source-ecosystems/updates/120507
+
+proposal_rules:
+  title_prefix: "PESOSE: Track 2: "
+  max_duration_months: 24
+  citation: NSF 26-506 V.A, Title and Budget and Budget Justification
+
+# This complete list replaces the inherited rubric because pack inheritance
+# replaces lists. It retains the two NSF-wide criteria and their five standard
+# review elements before the six additional Track 2 questions.
+review_rubric:
+  - id: intellectual_merit
+    name: Intellectual Merit
+    description: >-
+      What is the potential for the proposed activity to advance knowledge?
+    citation: PAPPG 24-1 III.A
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-3-nsf-proposal-processing-review
+  - id: broader_impacts
+    name: Broader Impacts
+    description: >-
+      What is the potential for the proposed activity to benefit society or
+      advance desired societal outcomes?
+    citation: PAPPG 24-1 III.A
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-3-nsf-proposal-processing-review
+  - id: knowledge_and_societal_benefit
+    name: Knowledge and societal benefit
+    description: >-
+      Potential to advance knowledge within or across fields and to benefit
+      society or advance desired societal outcomes.
+    citation: PAPPG 24-1 III.A.2.1
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-3-nsf-proposal-processing-review
+  - id: creativity
+    name: Creativity and transformation
+    description: >-
+      Extent to which the activities explore creative, original, or
+      potentially transformative concepts.
+    citation: PAPPG 24-1 III.A.2.2
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-3-nsf-proposal-processing-review
+  - id: plan_and_assessment
+    name: Plan and assessment
+    description: >-
+      Whether the plan is well reasoned, well organized, based on a sound
+      rationale, and includes a mechanism to assess success.
+    citation: PAPPG 24-1 III.A.2.3
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-3-nsf-proposal-processing-review
+  - id: qualifications
+    name: Qualifications
+    description: >-
+      How well qualified the individual, team, or organization is to conduct
+      the proposed activities.
+    citation: PAPPG 24-1 III.A.2.4
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-3-nsf-proposal-processing-review
+  - id: adequacy_of_resources
+    name: Adequacy of resources
+    description: >-
+      Whether adequate resources are available to carry out the proposed
+      activities.
+    citation: PAPPG 24-1 III.A.2.5
+    url: https://www.nsf.gov/policies/pappg/24-1/ch-3-nsf-proposal-processing-review
+  - id: societal_or_national_importance
+    name: Societal or national importance
+    description: >-
+      Does the proposal present a convincing case that the OSE will address an
+      issue of significant societal or national importance that is not
+      currently being adequately addressed?
+    citation: NSF 26-506 VI.A, Track 2 criterion 1
+    url: https://www.nsf.gov/funding/opportunities/pesose-pathways-enable-secure-open-source-ecosystems/nsf26-506/solicitation
+  - id: long_term_sustainability
+    name: Long-term sustainability
+    description: >-
+      Does the proposal clearly describe the long-term vision for sustaining
+      the OSE?
+    citation: NSF 26-506 VI.A, Track 2 criterion 2
+    url: https://www.nsf.gov/funding/opportunities/pesose-pathways-enable-secure-open-source-ecosystems/nsf26-506/solicitation
+  - id: contributor_community_and_organization
+    name: Contributor community and organization
+    description: >-
+      Does the proposal present a specific, actionable plan for building a
+      community of contributors, retaining contributors and establishing a
+      sustainable organizational structure?
+    citation: NSF 26-506 VI.A, Track 2 criterion 3
+    url: https://www.nsf.gov/funding/opportunities/pesose-pathways-enable-secure-open-source-ecosystems/nsf26-506/solicitation
+  - id: licensing_approach
+    name: Licensing approach
+    description: >-
+      Does the proposal include a clear, detailed licensing approach for the
+      open-source product that is the subject of the OSE?
+    citation: NSF 26-506 VI.A, Track 2 criterion 4
+    url: https://www.nsf.gov/funding/opportunities/pesose-pathways-enable-secure-open-source-ecosystems/nsf26-506/solicitation
+  - id: build_test_quality_and_security
+    name: Build, test, quality control, and security
+    description: >-
+      Does the proposal clearly describe a build and test infrastructure, and
+      procedures to address quality control and security of new content?
+    citation: NSF 26-506 VI.A, Track 2 criterion 5
+    url: https://www.nsf.gov/funding/opportunities/pesose-pathways-enable-secure-open-source-ecosystems/nsf26-506/solicitation
+  - id: milestones_and_evaluation
+    name: Milestones and evaluation
+    description: >-
+      Does the proposal present a specific, actionable list of milestones and
+      evaluation plan?
+    citation: NSF 26-506 VI.A, Track 2 criterion 6
+    url: https://www.nsf.gov/funding/opportunities/pesose-pathways-enable-secure-open-source-ecosystems/nsf26-506/solicitation

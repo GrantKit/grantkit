@@ -42,12 +42,12 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "markdown>=3.5",
     "pylatexenc>=2.10",
+    "pypdf>=4.0",
 ]
 
 [project.optional-dependencies]
 pdf = [
     "weasyprint>=60.0",
-    "pypdf>=4.0",
 ]
 docx = [
     "python-docx>=1.0",

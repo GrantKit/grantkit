@@ -80,3 +80,42 @@ def test_review_pack_flag_embeds_full_pack(make_grant):
     assert "pack" in packet
     assert packet["pack"]["id"] == "nsf-pappg"
     assert "formatting_rules" in packet["pack"]
+
+
+def test_pesose_review_includes_nsf_and_track_2_criteria(make_grant):
+    config = {
+        "title": "PESOSE: Track 2: Test",
+        "pack": "nsf-pesose-26-506-track-2",
+        "sections": [
+            {
+                "id": "project_summary",
+                "title": "Project Summary",
+                "file": "responses/project_summary.md",
+            }
+        ],
+    }
+    project = _project(
+        make_grant,
+        config,
+        {
+            "responses/project_summary.md": (
+                "# Overview\n\nText.\n\n# Intellectual Merit\n\nText.\n\n"
+                "# Broader Impacts\n\nText.\n\nKeywords: one; two"
+            )
+        },
+    )
+    packet = build_review(project, include_pack=True)
+    rubric_ids = {criterion["id"] for criterion in packet["rubric"]}
+    assert {
+        "intellectual_merit",
+        "broader_impacts",
+        "knowledge_and_societal_benefit",
+        "creativity",
+        "plan_and_assessment",
+        "qualifications",
+        "adequacy_of_resources",
+        "societal_or_national_importance",
+        "milestones_and_evaluation",
+    } <= rubric_ids
+    assert packet["pack"]["extends"] == "nsf-pappg"
+    assert "formatting_rules" in packet["pack"]
