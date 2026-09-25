@@ -29,6 +29,43 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   component sums that don't reconcile), an advisory target check, and
   funder caps from the bound rule pack applied to the compiled total.
 - Docs: `docs/budget-model.md` and `docs/rates-contract.md`.
+- `BibliographyGenerator.citation_order(documents)` and
+  `process_documents_with_citations(documents)`, plus a `citation_order=`
+  argument on `process_content_with_citations` and
+  `create_separate_references_document`: number every document of a proposal
+  (Summary, Description, References Cited) from one shared key list.
+
+### Fixed
+
+- **Citation numbering was nondeterministic.** The alphabetical sort keyed on
+  the first author's surname only, and its input was `list(set(keys))`, so
+  entries sharing a surname kept an order that changed with each process's
+  string-hash seed. Documents numbered in separate processes could disagree:
+  a submitted NSF Project Description cited 19 of its 48 references by the
+  wrong number. Ties now break on the full author list, year, title, and key,
+  and keys are de-duplicated in first-appearance order. **Numbers inside
+  former tie blocks can change: re-render all documents of a proposal
+  together.**
+- Double-braced institutional authors (`{{National Science Foundation}}`) are
+  no longer inverted to "Foundation, National Science" in References Cited,
+  and sort under their full name, as the citation docs already promised.
+- Author lists split on "and" across line breaks, as in BibTeX; a wrapped list
+  no longer merges two authors into one.
+- `.bib` files load in a fixed order (it was hash-randomized), so when a key
+  is defined in more than one file the same entry wins every run, and a
+  warning names the override. Each file gets a fresh parser: a reused one
+  re-parsed every earlier file with each new one and emitted bibtexparser's
+  "parser has been called more than once" warning, and under
+  warnings-as-errors the second `.bib` file silently failed to load.
+- The legacy PDF pipeline built References Cited from the already-numbered
+  text, which has no `[@key]` left, so the list was always empty; it also
+  numbered the text before loading `references.bib`, sorting by key instead of
+  author. Both now use the order the text was numbered with.
+- A key missing from `references.bib` keeps its number in References Cited
+  (as a "Missing entry" line) instead of being dropped, which shifted every
+  later number.
+- Pin `bibtexparser<2`: 2.0 (2026-09-08) removed the 1.x API grantkit uses, so
+  a fresh install failed on import.
 
 ## [0.2.1] - 2026-07-07
 

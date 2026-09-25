@@ -144,4 +144,7 @@ These lower-level modules are still available and power the checks above:
   GSA per-diem, BLS OEWS salary validation.
 - `grantkit.references.BibTeXManager` / `CitationExtractor` — bibliography and
   citation handling.
+- `grantkit.references.BibliographyGenerator` — numbered citations and
+  References Cited; number a proposal's documents from one shared
+  `citation_order` (see [citations](features/citations.md)).
 - `grantkit.pdf.PDFGenerator` — the legacy NSF PDF pipeline (WeasyPrint).

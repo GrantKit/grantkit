@@ -1,10 +1,11 @@
 """BibTeX file management and parsing functionality."""
 
+import dataclasses
 import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import bibtexparser
 from bibtexparser.bibdatabase import BibDatabase
@@ -13,6 +14,9 @@ from bibtexparser.bwriter import BibTexWriter
 from pylatexenc.latex2text import LatexNodes2Text
 
 logger = logging.getLogger(__name__)
+
+# BibTeX's name separator: "and" with whitespace on both sides.
+_AND_SEPARATOR = re.compile(r"\s+and\s+")
 
 
 @dataclass
@@ -30,6 +34,9 @@ class BibEntry:
     doi: Optional[str] = None
     url: Optional[str] = None
     raw_entry: Dict[str, Any] = None
+    # Names in ``authors`` that were brace-protected in the .bib
+    # (``{{National Science Foundation}}``): institutions, not people.
+    corporate_authors: List[str] = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         if self.raw_entry is None:
@@ -48,12 +55,8 @@ class BibTeXManager:
         self.project_root = Path(project_root)
         self.bibtex_files: List[Path] = []
         self.entries: Dict[str, BibEntry] = {}
+        self._entry_sources: Dict[str, Path] = {}
         self.latex_converter = LatexNodes2Text()
-
-        # Configure bibtexparser
-        self.parser = BibTexParser(common_strings=True)
-        self.parser.ignore_nonstandard_types = False
-        self.parser.homogenise_fields = True
 
         self.writer = BibTexWriter()
         self.writer.indent = "  "
@@ -75,11 +78,13 @@ class BibTeXManager:
 
         for search_path in search_paths:
             if search_path.exists():
-                bib_files = list(search_path.glob("*.bib"))
-                self.bibtex_files.extend(bib_files)
+                # glob order is filesystem-dependent; sort it.
+                self.bibtex_files.extend(sorted(search_path.glob("*.bib")))
 
-        # Remove duplicates
-        self.bibtex_files = list(set(self.bibtex_files))
+        # Remove duplicates without losing the order above: when a key is
+        # defined in more than one file, the file loaded last wins, so the
+        # load order must not depend on set iteration (hash-randomized).
+        self.bibtex_files = list(dict.fromkeys(self.bibtex_files))
 
         if self.bibtex_files:
             logger.info(
@@ -103,7 +108,12 @@ class BibTeXManager:
 
             try:
                 with open(bib_path, "r", encoding="utf-8") as bib_file_obj:
-                    database = bibtexparser.load(bib_file_obj, self.parser)
+                    # A fresh parser per file: a reused BibTexParser returns
+                    # every earlier parse again with each new file and warns
+                    # on its second use (an error under -W error).
+                    database = bibtexparser.load(
+                        bib_file_obj, self._new_parser()
+                    )
 
                 logger.info(
                     f"Loaded {len(database.entries)} entries from {bib_path.name}"
@@ -111,10 +121,25 @@ class BibTeXManager:
 
                 for entry in database.entries:
                     bib_entry = self._parse_bibtex_entry(entry)
+                    previous = self._entry_sources.get(bib_entry.key)
+                    if previous is not None and previous != bib_path:
+                        logger.warning(
+                            f"Citation key '{bib_entry.key}' in "
+                            f"{bib_path.name} overrides {previous.name}"
+                        )
                     self.entries[bib_entry.key] = bib_entry
+                    self._entry_sources[bib_entry.key] = bib_path
 
             except Exception as e:
                 logger.error(f"Failed to load BibTeX file {bib_path}: {e}")
+
+    @staticmethod
+    def _new_parser() -> BibTexParser:
+        """Return a configured, single-use BibTeX parser."""
+        parser = BibTexParser(common_strings=True)
+        parser.ignore_nonstandard_types = False
+        parser.homogenise_fields = True
+        return parser
 
     def _parse_bibtex_entry(self, entry: Dict[str, str]) -> BibEntry:
         """Parse a raw BibTeX entry into a BibEntry object."""
@@ -122,8 +147,9 @@ class BibTeXManager:
         title = self._clean_latex(entry.get("title", ""))
 
         # Parse authors
-        authors_raw = entry.get("author", "")
-        authors = self._parse_authors(authors_raw)
+        parsed = self._parse_author_list(entry.get("author", ""))
+        authors = [name for name, _ in parsed]
+        corporate = [name for name, is_corporate in parsed if is_corporate]
 
         return BibEntry(
             key=entry["ID"],
@@ -137,6 +163,7 @@ class BibTeXManager:
             doi=entry.get("doi"),
             url=entry.get("url"),
             raw_entry=entry,
+            corporate_authors=corporate,
         )
 
     def _clean_latex(self, text: str) -> str:
@@ -164,19 +191,22 @@ class BibTeXManager:
         - Corporate authors: wrapped in braces {{Name}} (bibtexparser preserves one brace level)
         - Corporate authors with "and" in name: braces prevent splitting
         """
+        return [name for name, _ in self._parse_author_list(authors_raw)]
+
+    def _parse_author_list(self, authors_raw: str) -> List[Tuple[str, bool]]:
+        """Parse an author string into ``(name, is_corporate)`` pairs.
+
+        An author whose whole name sits inside one brace group is corporate
+        (institutional): BibTeX treats it as a single unsplittable name.
+        """
         if not authors_raw:
             return []
 
         stripped = authors_raw.strip()
 
         # Single braced corporate author - return immediately
-        if (
-            stripped.startswith("{")
-            and stripped.endswith("}")
-            and stripped.count("{") == 1
-            and stripped.count("}") == 1
-        ):
-            return [stripped[1:-1].strip()]
+        if self._is_brace_wrapped(stripped):
+            return [(" ".join(stripped[1:-1].split()), True)]
 
         # Split by ' and ' while preserving braced content
         raw_authors = self._split_authors_by_and(authors_raw)
@@ -184,18 +214,42 @@ class BibTeXManager:
         # Process each author
         parsed_authors = []
         for author in raw_authors:
-            if author.startswith("{") and author.endswith("}"):
+            if self._is_brace_wrapped(author):
                 # Corporate/institutional author - remove braces
-                parsed_authors.append(author[1:-1].strip())
+                name = " ".join(author[1:-1].split())
+                parsed_authors.append((name, True))
             else:
                 # Regular author - clean LaTeX and normalize whitespace
                 cleaned = self._clean_latex(author)
-                parsed_authors.append(" ".join(cleaned.split()))
+                parsed_authors.append((" ".join(cleaned.split()), False))
 
         return parsed_authors
 
+    @staticmethod
+    def _is_brace_wrapped(text: str) -> bool:
+        """True if ``text`` is one brace group: ``{...}`` closing at the end.
+
+        ``{Eric} {Smith}`` starts and ends with a brace but is two groups,
+        so it is a person with protected capitalization, not an institution.
+        """
+        if len(text) < 2 or not text.startswith("{"):
+            return False
+        depth = 0
+        for i, char in enumerate(text):
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return i == len(text) - 1
+        return False
+
     def _split_authors_by_and(self, authors_raw: str) -> List[str]:
-        """Split author string by ' and ' while preserving braced content."""
+        """Split author string on "and" while preserving braced content.
+
+        As in BibTeX, the separator is "and" between any whitespace, so an
+        author list wrapped across lines splits the same way.
+        """
         authors = []
         current = ""
         brace_depth = 0
@@ -203,6 +257,11 @@ class BibTeXManager:
 
         while i < len(authors_raw):
             char = authors_raw[i]
+            separator = (
+                _AND_SEPARATOR.match(authors_raw, i)
+                if brace_depth == 0 and char.isspace()
+                else None
+            )
 
             if char == "{":
                 brace_depth += 1
@@ -210,11 +269,11 @@ class BibTeXManager:
             elif char == "}":
                 brace_depth -= 1
                 current += char
-            elif brace_depth == 0 and authors_raw[i : i + 5] == " and ":
+            elif separator:
                 if current.strip():
                     authors.append(current.strip())
                 current = ""
-                i += 5
+                i = separator.end()
                 continue
             else:
                 current += char

@@ -131,8 +131,10 @@ class PDFGenerator:
             # Generate references document
             references_result = None
             if used_citations:
+                # From the source text (the numbered text has no [@key]
+                # left) and the order the text was numbered with.
                 bib_result = self.bibliography_generator.create_separate_references_document(
-                    main_content
+                    markdown_content, citation_order=used_citations
                 )
                 if bib_result.success:
                     references_content = bib_result.bibliography_content
@@ -303,7 +305,7 @@ class PDFGenerator:
                     if used_citations:
                         # Generate references section
                         bib_result = self.bibliography_generator.create_separate_references_document(
-                            main_content
+                            markdown_content, citation_order=used_citations
                         )
                         if bib_result.success:
                             references_content = (
